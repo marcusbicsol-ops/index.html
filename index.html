@@ -143,7 +143,7 @@
 
   /* ---------- Tabs ---------- */
   nav.tabs{
-    max-width:760px;
+    max-width:820px;
     margin:18px auto 0;
     display:flex;
     gap:8px;
@@ -173,7 +173,7 @@
   }
 
   main{
-    max-width:760px;
+    max-width:820px;
     margin:24px auto;
     padding:0 16px;
   }
@@ -189,7 +189,7 @@
     margin-bottom:18px;
     align-items:center;
   }
-  select, input[type=text]{
+  select, input[type=text], input[type=password]{
     font-family:var(--sans);
     font-size:14px;
     padding:10px 14px;
@@ -533,6 +533,66 @@
   }
   .sentence-card textarea:focus{outline:none; border-color:var(--pink); box-shadow:0 0 0 3px var(--pink-light);}
   .sc-actions{display:flex; justify-content:flex-end; align-items:center; margin-top:10px; gap:10px; flex-wrap:wrap;}
+
+  /* ---------- Dictation / Video Tab Styles ---------- */
+  .dictation-box {
+    background: #fff;
+    border: 3px solid var(--paper-darker);
+    border-radius: 22px;
+    padding: 20px;
+    box-shadow: 0 6px 20px rgba(74,59,50,0.04);
+  }
+  .video-container {
+    position: relative;
+    width: 100%;
+    aspect-ratio: 16/9;
+    background: #000;
+    border-radius: 16px;
+    overflow: hidden;
+    margin-bottom: 16px;
+    border: 2px solid var(--paper-darker);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #fff;
+  }
+  .video-container iframe, .video-container video, .video-container embed {
+    width: 100%;
+    height: 100%;
+    border: none;
+  }
+  .dictation-input-area textarea {
+    width: 100%;
+    font-family: var(--sans);
+    font-size: 15px;
+    padding: 14px;
+    border-radius: 16px;
+    border: 2px solid var(--paper-darker);
+    resize: vertical;
+    min-height: 100px;
+    background: var(--paper);
+  }
+  .dictation-input-area textarea:focus {
+    outline: none;
+    border-color: var(--pink);
+    box-shadow: 0 0 0 3px var(--pink-light);
+  }
+  .teacher-access-bar {
+    display: flex;
+    justify-content: flex-end;
+    margin-bottom: 12px;
+  }
+  .teacher-panel {
+    background: var(--paper-dark);
+    border: 2px dashed var(--seal-dark);
+    border-radius: 16px;
+    padding: 16px;
+    margin-bottom: 16px;
+    display: none;
+  }
+  .teacher-panel.active {
+    display: block;
+  }
 </style>
 </head>
 <body>
@@ -565,6 +625,7 @@
   <button data-view="quiz">Kiểm tra</button>
   <button data-view="timed">Thử thách 4 giây</button>
   <button data-view="sentence">Đặt câu</button>
+  <button data-view="dictation">Chép chính tả từ video</button>
   <button data-view="progress">Tiến độ</button>
   <button data-view="manage">Kho từ vựng</button>
 </nav>
@@ -572,7 +633,7 @@
 <main>
 
   <!-- ============ FLASHCARD VIEW ============ -->
-  <section class="view active" id="view-flashcard">
+  <section class="view" id="view-flashcard">
     <div class="filters">
       <select id="fc-topic"></select>
       <select id="fc-level">
@@ -649,6 +710,43 @@
     </div>
   </section>
 
+  <!-- ============ DICTATION / VIDEO VIEW ============ -->
+  <section class="view" id="view-dictation">
+    <div class="student-bar">
+      <div class="who">Học viên: <strong id="dc-student-name">—</strong></div>
+    </div>
+    <div class="dictation-box">
+      <div class="teacher-access-bar">
+        <button class="link-btn" id="open-teacher-panel-btn" style="color:var(--seal-dark);">🔒 Khu vực Giáo viên</button>
+      </div>
+
+      <!-- BẢNG ĐIỀU KHIỂN DÀNH CHO GIÁO VIÊN (BẢO MẬT MẬT KHẨU) -->
+      <div class="teacher-panel" id="teacher-panel">
+        <h4 style="margin:0 0 8px; color:var(--seal-dark); font-family:var(--serif);">⚙️ Bảng Quản Trị Video Của Giáo Viên</h4>
+        <p style="font-size:12px; color:var(--ink-soft); margin-bottom:10px;">Dán link YouTube hoặc Douyin mới vào đây, học viên truy cập sau sẽ thấy video này.</p>
+        <div style="display:flex; gap:10px;">
+          <input type="text" id="teacher-video-url" placeholder="Dán link video mới..." style="flex:1;">
+          <button class="btn btn-primary" id="save-teacher-video-btn">Cập nhật video</button>
+        </div>
+      </div>
+
+      <h3 style="font-family:var(--serif); margin-top:0; color:var(--seal-dark);">🎧 Chép chính tả từ Video</h3>
+      <p style="font-size:13px; color:var(--ink-soft); margin-bottom:14px;">Xem video bài học do giáo viên cung cấp, nghe và gõ lại nội dung tiếng Trung phía bên dưới rồi bấm gửi.</p>
+
+      <div class="video-container" id="video-display-area">
+        <span>Đang tải video bài học... 📺</span>
+      </div>
+
+      <div class="dictation-input-area">
+        <label style="font-size:12px; color:var(--ink-soft); display:block; margin-bottom:6px; font-weight:700;">Nội dung bạn nghe và chép lại:</label>
+        <textarea id="dictation-text" placeholder="Nghe và gõ chữ Hán/Pinyin bạn nghe được vào đây..."></textarea>
+        <div style="display:flex; justify-content:flex-end; margin-top:12px;">
+          <button class="btn btn-ok" id="submit-dictation-btn">Gửi bài chép chính tả 🚀</button>
+        </div>
+      </div>
+    </div>
+  </section>
+
   <!-- ============ PROGRESS VIEW ============ -->
   <section class="view" id="view-progress">
     <div class="progress-grid">
@@ -702,7 +800,7 @@ const DEFAULT_WORDS = [
 /* =========================================================
    STATE & LOCALSTORAGE
    ========================================================= */
-const STORAGE_KEY = "zhVocabApp_cute_v3";
+const STORAGE_KEY = "zhVocabApp_cute_v4";
 
 function loadState(){
   try{
@@ -715,7 +813,8 @@ function loadState(){
     learned: {},        
     lastStudyDate: null,
     streak: 0,
-    timedBest: {}        
+    timedBest: {},
+    globalVideoUrl: "https://www.youtube.com/watch?v=dQw4w9WgXcQ" // Link mặc định ban đầu
   };
 }
 function saveState(){
@@ -734,6 +833,7 @@ function initWelcome(){
     welcomeOverlay.style.display = "none";
     welcomeNameInput.value = state.studentName;
     document.getElementById("sc-student-name").textContent = state.studentName;
+    document.getElementById("dc-student-name").textContent = state.studentName;
     renderSentenceStudentList();
   } else {
     welcomeOverlay.style.display = "flex";
@@ -750,6 +850,7 @@ welcomeSubmitBtn.addEventListener("click", () => {
   saveState();
   welcomeOverlay.style.display = "none";
   document.getElementById("sc-student-name").textContent = state.studentName;
+  document.getElementById("dc-student-name").textContent = state.studentName;
   renderSentenceStudentList();
 });
 
@@ -789,6 +890,10 @@ tabButtons.forEach(btn=>{
     if(btn.dataset.view === "manage") renderManage();
     if(btn.dataset.view === "timed") renderTimedIdle();
     if(btn.dataset.view === "sentence") renderSentenceView();
+    if(btn.dataset.view === "dictation") {
+      document.getElementById("dc-student-name").textContent = state.studentName || "Học viên";
+      loadVideoIntoDisplay(state.globalVideoUrl);
+    }
   });
 });
 
@@ -1339,8 +1444,117 @@ function renderSentenceStudentList(){
   });
 }
 
+/* =========================================================
+   DICTATION / VIDEO FEATURE (BẢO MẬT MẬT KHẨU GIÁO VIÊN)
+   ========================================================= */
+const openTeacherPanelBtn = document.getElementById("open-teacher-panel-btn");
+const teacherPanel = document.getElementById("teacher-panel");
+const teacherVideoUrl = document.getElementById("teacher-video-url");
+const saveTeacherVideoBtn = document.getElementById("save-teacher-video-btn");
+const videoDisplayArea = document.getElementById("video-display-area");
+const submitDictationBtn = document.getElementById("submit-dictation-btn");
+const dictationText = document.getElementById("dictation-text");
+
+// Mở khoá khu vực giáo viên bằng mật khẩu 123455
+openTeacherPanelBtn.addEventListener("click", () => {
+  const pass = prompt("Nhập mật khẩu giáo viên:");
+  if(pass === "123455"){
+    teacherPanel.classList.toggle("active");
+    if(teacherPanel.classList.contains("active")){
+      teacherVideoUrl.value = state.globalVideoUrl || "";
+      openTeacherPanelBtn.textContent = "🔓 Đang mở khu vực Giáo viên";
+    } else {
+      openTeacherPanelBtn.textContent = "🔒 Khu vực Giáo viên";
+    }
+  } else if(pass !== null) {
+    alert("Mật khẩu không chính xác!");
+  }
+});
+
+// Hàm hiển thị video ra màn hình chung cho cả học sinh
+function loadVideoIntoDisplay(rawUrl){
+  if(!rawUrl) {
+    videoDisplayArea.innerHTML = '<span>Chưa có video bài học nào từ giáo viên. 📺</span>';
+    return;
+  }
+
+  let embedHtml = "";
+  if(rawUrl.includes("youtube.com") || rawUrl.includes("youtu.be")){
+    let videoId = "";
+    if(rawUrl.includes("youtu.be/")){
+      videoId = rawUrl.split("youtu.be/")[1]?.split("?")[0];
+    } else if(rawUrl.includes("watch?v=")){
+      videoId = rawUrl.split("watch?v=")[1]?.split("&")[0];
+    } else if(rawUrl.includes("embed/")){
+      videoId = rawUrl.split("embed/")[1]?.split("?")[0];
+    }
+
+    if(videoId){
+      embedHtml = `<iframe src="https://www.youtube.com/embed/${videoId}" allowfullscreen></iframe>`;
+    } else {
+      embedHtml = `<iframe src="${rawUrl}" allowfullscreen></iframe>`;
+    }
+  } else {
+    embedHtml = `<iframe src="${rawUrl}" allowfullscreen></iframe>`;
+  }
+
+  videoDisplayArea.innerHTML = embedHtml;
+}
+
+// Giáo viên lưu video mới (đồng bộ toàn hệ thống)
+saveTeacherVideoBtn.addEventListener("click", () => {
+  const newUrl = teacherVideoUrl.value.trim();
+  if(!newUrl){
+    alert("Vui lòng nhập link video hợp lệ!");
+    return;
+  }
+
+  state.globalVideoUrl = newUrl;
+  saveState();
+  loadVideoIntoDisplay(newUrl);
+  alert("Cập nhật video bài học thành công! Tất cả học sinh truy cập vào sẽ tự động thấy video mới này ✨");
+  teacherPanel.classList.remove("active");
+  openTeacherPanelBtn.textContent = "🔒 Khu vực Giáo viên";
+});
+
+// Học viên gửi bài chép chính tả
+submitDictationBtn.addEventListener("click", async () => {
+  const content = dictationText.value.trim();
+  if(!content){
+    alert("Vui lòng nhập nội dung bạn chép được trước khi gửi nhé!");
+    return;
+  }
+
+  submitDictationBtn.disabled = true;
+  submitDictationBtn.textContent = "Đang gửi...";
+
+  try {
+    await fetch(GOOGLE_SCRIPT_URL, {
+      method: "POST",
+      mode: "no-cors",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        studentName: state.studentName || "Học viên ẩn danh",
+        word: "[Chép Chính Tả Video] Link: " + (state.globalVideoUrl || "Chưa rõ link"),
+        sentence: content
+      })
+    });
+
+    alert("Gửi bài chép chính tả về Google Sheet thành công! 🎉");
+    dictationText.value = "";
+  } catch (error) {
+    alert("Gửi thất bại, vui lòng kiểm tra lại kết nối mạng.");
+  } finally {
+    submitDictationBtn.disabled = false;
+    submitDictationBtn.textContent = "Gửi bài chép chính tả 🚀";
+  }
+});
+
 initWelcome();
 renderProgress();
+loadVideoIntoDisplay(state.globalVideoUrl);
 </script>
 </body>
 </html>
