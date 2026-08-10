@@ -143,7 +143,7 @@
 
   /* ---------- Tabs ---------- */
   nav.tabs{
-    max-width:820px;
+    max-width:860px;
     margin:18px auto 0;
     display:flex;
     gap:8px;
@@ -155,7 +155,7 @@
     font-family:var(--sans);
     font-size:13px;
     font-weight:700;
-    padding:10px 16px;
+    padding:10px 14px;
     border-radius:20px;
     border:2px solid var(--paper-darker);
     background:#fff;
@@ -628,6 +628,7 @@
   <button data-view="dictation">Chép chính tả từ video</button>
   <button data-view="progress">Tiến độ</button>
   <button data-view="manage">Kho từ vựng</button>
+  <button data-view="teacher-lists" style="color:var(--seal-dark); border-color:var(--seal-dark);">⚙️ Quản lý List (GV)</button>
 </nav>
 
 <main>
@@ -717,7 +718,7 @@
     </div>
     <div class="dictation-box">
       <div class="teacher-access-bar">
-        <button class="link-btn" id="open-teacher-panel-btn" style="color:var(--seal-dark);">🔒 Khu vực Giáo viên</button>
+        <button class="link-btn" id="open-teacher-panel-btn" style="color:var(--seal-dark);">🔒 Khu vực Giáo viên (Đổi Video)</button>
       </div>
 
       <!-- BẢNG ĐIỀU KHIỂN DÀNH CHO GIÁO VIÊN (BẢO MẬT MẬT KHẨU) -->
@@ -768,18 +769,55 @@
       <select id="mg-topic"></select>
     </div>
 
-    <div class="add-form">
-      <div class="full"><label>✨ Thêm từ mới vào kho đáng yêu</label></div>
-      <div><label>Hán tự *</label><input type="text" id="add-hanzi" placeholder="猫"></div>
-      <div><label>Pinyin *</label><input type="text" id="add-pinyin" placeholder="māo"></div>
-      <div><label>Nghĩa *</label><input type="text" id="add-meaning" placeholder="con mèo"></div>
-      <div><label>Emoji minh hoạ</label><input type="text" id="add-emoji" placeholder="🐱"></div>
-      <div class="full"><label>Chủ đề</label><input type="text" id="add-topic" placeholder="Con vật"></div>
-      <div class="full"><label>Câu ví dụ (tuỳ chọn)</label><input type="text" id="add-example" placeholder="我家有一只猫。"></div>
-      <div class="full"><button class="btn btn-primary" id="add-submit">+ Thêm vào kho</button></div>
+    <div class="word-list" id="mg-list"></div>
+  </section>
+
+  <!-- ============ TEACHER LISTS MANAGEMENT VIEW ============ -->
+  <section class="view" id="view-teacher-lists">
+    <div id="teacher-auth-box" style="background:#fff; border:3px solid var(--paper-darker); border-radius:24px; padding:30px; text-align:center; max-width:450px; margin:40px auto;">
+      <h3 style="font-family:var(--serif); color:var(--seal-dark); margin-top:0;">🔒 Khu Vực Quản Lý Của Giáo Viên</h3>
+      <p style="font-size:13px; color:var(--ink-soft); margin-bottom:20px;">Vui lòng nhập mật khẩu để tạo List, thêm hoặc xóa từ vựng ôn tập cho học sinh.</p>
+      <input type="password" id="teacher-password-input" placeholder="Nhập mật khẩu giáo viên..." style="width:100%; margin-bottom:16px; text-align:center;">
+      <button class="btn btn-primary" id="teacher-login-btn" style="width:100%;">Truy cập bảng quản trị</button>
     </div>
 
-    <div class="word-list" id="mg-list"></div>
+    <div id="teacher-dashboard" style="display:none;">
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:18px;">
+        <h3 style="font-family:var(--serif); color:var(--seal-dark); margin:0;">📚 Tạo và Quản Lý List Từ Vựng</h3>
+        <button class="btn btn-outline" id="teacher-logout-btn" style="font-size:12px; padding:6px 12px;">Đăng xuất</button>
+      </div>
+
+      <!-- Form tạo List mới / Thêm từ -->
+      <div class="add-form">
+        <div class="full"><label>✨ Thêm từ mới vào Danh sách (List)</label></div>
+        <div>
+          <label>Chọn hoặc tạo List (Chủ đề) *</label>
+          <select id="tl-topic-select" style="width:100%; padding:10px; border-radius:12px; border:2px solid var(--paper-darker);"></select>
+        </div>
+        <div>
+          <label>Hoặc nhập tên List mới</label>
+          <input type="text" id="tl-new-topic" placeholder="Ví dụ: Bài 5 HSK 3">
+        </div>
+        <div><label>Hán tự *</label><input type="text" id="tl-hanzi" placeholder="猫"></div>
+        <div><label>Pinyin *</label><input type="text" id="tl-pinyin" placeholder="māo"></div>
+        <div><label>Nghĩa *</label><input type="text" id="tl-meaning" placeholder="con mèo"></div>
+        <div><label>Emoji minh hoạ</label><input type="text" id="tl-emoji" placeholder="🐱"></div>
+        <div class="full"><label>Câu ví dụ (tuỳ chọn)</label><input type="text" id="tl-example" placeholder="我家有一只猫。"></div>
+        <div class="full"><button class="btn btn-primary" id="tl-add-btn">+ Thêm từ vào List</button></div>
+      </div>
+
+      <!-- Khu vực Xóa List -->
+      <div style="background:#fff; border:3px solid var(--paper-darker); border-radius:22px; padding:20px; margin-bottom:20px;">
+        <h4 style="margin:0 0 10px; color:var(--seal-dark); font-family:var(--serif);">🗑 Xóa toàn bộ một List</h4>
+        <div style="display:flex; gap:10px; align-items:center;">
+          <select id="tl-delete-topic-select" style="flex:1;"></select>
+          <button class="btn btn-bad" id="tl-delete-topic-btn">Xóa List này</button>
+        </div>
+      </div>
+
+      <h4 style="font-family:var(--serif); color:var(--seal-dark);">Danh sách từ vựng hiện có:</h4>
+      <div class="word-list" id="tl-word-list"></div>
+    </div>
   </section>
 
 </main>
@@ -788,7 +826,7 @@
 
 <script>
 /* =========================================================
-   DANH SÁCH TỪ VỰNG
+   DANH SÁCH TỪ VỰNG MẶC ĐỊNH
    ========================================================= */
 const DEFAULT_WORDS = [
   {id:"w1", hanzi:"反省", pinyin:"fǎnxǐng", meaning:"tự kiểm điểm, suy ngẫm lại", emoji:"🍵", topic:"Chuyên đề", level:"HSK2", example:"他犯错后认真反省。"},
@@ -800,7 +838,7 @@ const DEFAULT_WORDS = [
 /* =========================================================
    STATE & LOCALSTORAGE
    ========================================================= */
-const STORAGE_KEY = "zhVocabApp_cute_v4";
+const STORAGE_KEY = "zhVocabApp_cute_v5";
 
 function loadState(){
   try{
@@ -810,11 +848,12 @@ function loadState(){
   return {
     studentName: "",
     customWords: [],
+    deletedDefaultIds: [], // Lưu các từ mặc định bị giáo viên xóa
     learned: {},        
     lastStudyDate: null,
     streak: 0,
     timedBest: {},
-    globalVideoUrl: "https://www.youtube.com/watch?v=dQw4w9WgXcQ" // Link mặc định ban đầu
+    globalVideoUrl: "https://www.youtube.com/watch?v=dQw4w9WgXcQ"
   };
 }
 function saveState(){
@@ -858,8 +897,10 @@ welcomeNameInput.addEventListener("keydown", (e) => {
   if(e.key === "Enter") welcomeSubmitBtn.click();
 });
 
+// Lấy danh sách từ (đã loại bỏ các từ mặc định bị giáo viên xóa)
 function allWords(){
-  return DEFAULT_WORDS.concat(state.customWords);
+  const activeDefaults = DEFAULT_WORDS.filter(w => !state.deletedDefaultIds.includes(w.id));
+  return activeDefaults.concat(state.customWords);
 }
 
 function touchStreak(){
@@ -894,6 +935,9 @@ tabButtons.forEach(btn=>{
       document.getElementById("dc-student-name").textContent = state.studentName || "Học viên";
       loadVideoIntoDisplay(state.globalVideoUrl);
     }
+    if(btn.dataset.view === "teacher-lists") {
+      // Giữ nguyên trạng thái đăng nhập giáo viên nếu đã xác thực
+    }
   });
 });
 
@@ -905,7 +949,7 @@ function fillTopicSelect(sel, includeAll=true){
   sel.innerHTML = "";
   if(includeAll){
     const o = document.createElement("option");
-    o.value="all"; o.textContent="Tất cả chủ đề";
+    o.value="all"; o.textContent="Tất cả chủ đề / List";
     sel.appendChild(o);
   }
   topicList().forEach(t=>{
@@ -1034,7 +1078,7 @@ function shuffle(arr){
 document.getElementById("qz-start").addEventListener("click", ()=>{
   const words = getFilteredWords(qzTopicSel.value, "all");
   if(words.length < 4){
-    qzArea.innerHTML = '<div class="empty-note">Cần ít nhất 4 từ trong chủ đề này để tạo câu hỏi trắc nghiệm nhé!</div>';
+    qzArea.innerHTML = '<div class="empty-note">Cần ít nhất 4 từ trong chủ đề/list này để tạo câu hỏi trắc nghiệm nhé!</div>';
     return;
   }
   const count = Math.min(parseInt(document.getElementById("qz-count").value), words.length);
@@ -1098,8 +1142,10 @@ function renderQuizResult(){
 }
 
 /* =========================================================
-   TIMED CHALLENGE VIEW (4 GIÂY)
+   TIMED CHALLENGE VIEW (4 GIÂY) & TỰ ĐỘNG GỬI GOOGLE SHEET
    ========================================================= */
+const GOOGLE_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbyoyoRnW6yv3XFiHwhD83ncbVfcqSwzFs5Z_dvjsVedG4RCt1FHWhRO7giKN1LUi68FbQ/exec";
+
 const tmTopicSel = document.getElementById("tm-topic");
 fillTopicSelect(tmTopicSel);
 const tmArea = document.getElementById("tm-area");
@@ -1234,11 +1280,27 @@ function renderTimedPass(){
     state.timedBest[key] = tmAttempts;
     saveState();
   }
+
+  // Tự động gửi tên học viên và tên list từ vựng hoàn thành về Google Sheet
+  const listName = tmTopicSel.options[tmTopicSel.selectedIndex]?.text || tmTopicSel.value;
+  fetch(GOOGLE_SCRIPT_URL, {
+    method: "POST",
+    mode: "no-cors",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      studentName: state.studentName || "Học viên ẩn danh",
+      word: "[Thử Thách 4 Giây - HOÀN THÀNH]",
+      sentence: `Đã hoàn thành xuất sắc List: "${listName}" sau ${tmAttempts} lượt thử.`
+    })
+  }).catch(err => console.error("Lỗi gửi dữ liệu thử thách:", err));
+
   tmArea.innerHTML = `
     <div class="stamp-overlay">
       <div class="stamp">通過<br>PASS</div>
       <div class="stamp-title">Quá đỉnh! Bạn đã vượt thử thách!</div>
-      <div class="stamp-sub">Hoàn thành sau ${tmAttempts} lượt thử.</div>
+      <div class="stamp-sub">Hoàn thành sau ${tmAttempts} lượt thử. (Đã gửi kết quả về cho giáo viên ✨)</div>
       <button class="btn btn-primary" id="tm-restart" style="margin-top:18px;">Thử lại</button>
     </div>
   `;
@@ -1284,7 +1346,7 @@ document.getElementById("pg-reset").addEventListener("click", ()=>{
 });
 
 /* =========================================================
-   MANAGE / WORD BANK VIEW
+   MANAGE / WORD BANK VIEW (Dành cho học viên xem danh sách)
    ========================================================= */
 const mgSearch = document.getElementById("mg-search");
 const mgTopicSel = document.getElementById("mg-topic");
@@ -1313,55 +1375,158 @@ function renderManage(){
   words.forEach(w=>{
     const row = document.createElement("div");
     row.className = "word-row";
-    const isCustom = state.customWords.some(c=>c.id===w.id);
     row.innerHTML = `
       <div class="emoji">${w.emoji||"🍡"}</div>
       <div class="hanzi">${w.hanzi}</div>
       <div class="pinyin">${w.pinyin}</div>
       <div class="meaning">${w.meaning} <span style="color:var(--ink-soft); font-size:12px; font-weight:normal;">· ${w.topic}</span></div>
-      ${isCustom ? `<button class="del-btn" title="Xoá từ này" data-id="${w.id}">🗑</button>` : ""}
     `;
     list.appendChild(row);
-  });
-  list.querySelectorAll(".del-btn").forEach(btn=>{
-    btn.addEventListener("click", ()=>{
-      state.customWords = state.customWords.filter(c=>c.id!==btn.dataset.id);
-      saveState();
-      renderManage();
-    });
   });
 }
 mgSearch.addEventListener("input", renderManage);
 mgTopicSel.addEventListener("change", renderManage);
 
-document.getElementById("add-submit").addEventListener("click", ()=>{
-  const hanzi = document.getElementById("add-hanzi").value.trim();
-  const pinyin = document.getElementById("add-pinyin").value.trim();
-  const meaning = document.getElementById("add-meaning").value.trim();
-  const emoji = document.getElementById("add-emoji").value.trim();
-  const topic = document.getElementById("add-topic").value.trim() || "Chung";
-  const example = document.getElementById("add-example").value.trim();
+/* =========================================================
+   TEACHER LISTS MANAGEMENT VIEW (Tạo list, thêm từ, xóa từ, xóa list)
+   ========================================================= */
+const teacherAuthBox = document.getElementById("teacher-auth-box");
+const teacherDashboard = document.getElementById("teacher-dashboard");
+const teacherPasswordInput = document.getElementById("teacher-password-input");
+const teacherLoginBtn = document.getElementById("teacher-login-btn");
+const teacherLogoutBtn = document.getElementById("teacher-logout-btn");
 
-  if(!hanzi || !pinyin || !meaning){
-    alert("Vui lòng điền đủ Hán tự, Pinyin và Nghĩa nhé!");
+teacherLoginBtn.addEventListener("click", () => {
+  if(teacherPasswordInput.value === "123455"){
+    teacherAuthBox.style.display = "none";
+    teacherDashboard.style.display = "block";
+    teacherPasswordInput.value = "";
+    renderTeacherManage();
+  } else {
+    alert("Mật khẩu giáo viên không chính xác!");
+  }
+});
+teacherPasswordInput.addEventListener("keydown", (e) => {
+  if(e.key === "Enter") teacherLoginBtn.click();
+});
+teacherLogoutBtn.addEventListener("click", () => {
+  teacherDashboard.style.display = "none";
+  teacherAuthBox.style.display = "block";
+});
+
+function renderTeacherManage(){
+  // Đổ dữ liệu vào select chọn list trong form thêm từ
+  const topicSel = document.getElementById("tl-topic-select");
+  topicSel.innerHTML = "";
+  topicList().forEach(t=>{
+    const o = document.createElement("option");
+    o.value = t; o.textContent = t;
+    topicSel.appendChild(o);
+  });
+
+  // Đổ dữ liệu vào select chọn list để xóa
+  const deleteTopicSel = document.getElementById("tl-delete-topic-select");
+  deleteTopicSel.innerHTML = "";
+  topicList().forEach(t=>{
+    const o = document.createElement("option");
+    o.value = t; o.textContent = t;
+    deleteTopicSel.appendChild(o);
+  });
+
+  // Hiển thị danh sách từ toàn hệ thống để giáo viên có thể xóa từng từ
+  const wordListWrap = document.getElementById("tl-word-list");
+  wordListWrap.innerHTML = "";
+  const words = allWords();
+  if(words.length === 0){
+    wordListWrap.innerHTML = '<div class="empty-note">Chưa có từ vựng nào.</div>';
     return;
   }
+  words.forEach(w=>{
+    const row = document.createElement("div");
+    row.className = "word-row";
+    row.innerHTML = `
+      <div class="emoji">${w.emoji||"🍡"}</div>
+      <div class="hanzi">${w.hanzi}</div>
+      <div class="pinyin">${w.pinyin}</div>
+      <div class="meaning">${w.meaning} <span style="color:var(--ink-soft); font-size:12px; font-weight:normal;">· [${w.topic}]</span></div>
+      <button class="del-btn teacher-del-word-btn" title="Xoá từ này" data-id="${w.id}">🗑</button>
+    `;
+    wordListWrap.appendChild(row);
+  });
+
+  wordListWrap.querySelectorAll(".teacher-del-word-btn").forEach(btn=>{
+    btn.addEventListener("click", ()=>{
+      const id = btn.dataset.id;
+      if(id.startsWith("w")){
+        // Là từ mặc định -> đưa vào danh sách ẩn
+        state.deletedDefaultIds.push(id);
+      } else {
+        // Là từ tự thêm -> xóa khỏi customWords
+        state.customWords = state.customWords.filter(c=>c.id!==id);
+      }
+      saveState();
+      renderTeacherManage();
+      buildFcDeck();
+    });
+  });
+}
+
+// Thêm từ vào List
+document.getElementById("tl-add-btn").addEventListener("click", ()=>{
+  const newTopicInput = document.getElementById("tl-new-topic").value.trim();
+  const selectedTopic = document.getElementById("tl-topic-select").value;
+  const topic = newTopicInput || selectedTopic || "Chung";
+
+  const hanzi = document.getElementById("tl-hanzi").value.trim();
+  const pinyin = document.getElementById("tl-pinyin").value.trim();
+  const meaning = document.getElementById("tl-meaning").value.trim();
+  const emoji = document.getElementById("tl-emoji").value.trim();
+  const example = document.getElementById("tl-example").value.trim();
+
+  if(!hanzi || !pinyin || !meaning){
+    alert("Vui lòng điền đủ Hán tự, Pinyin và Nghĩa!");
+    return;
+  }
+
   const id = "custom_" + Date.now();
   state.customWords.push({id, hanzi, pinyin, meaning, emoji, topic, level:"HSK1", example});
   saveState();
 
-  ["add-hanzi","add-pinyin","add-meaning","add-emoji","add-topic","add-example"].forEach(i=>{
-    document.getElementById(i).value = "";
-  });
-  renderManage();
+  document.getElementById("tl-new-topic").value = "";
+  document.getElementById("tl-hanzi").value = "";
+  document.getElementById("tl-pinyin").value = "";
+  document.getElementById("tl-meaning").value = "";
+  document.getElementById("tl-emoji").value = "";
+  document.getElementById("tl-example").value = "";
+
+  renderTeacherManage();
   buildFcDeck();
+  alert("Đã thêm từ mới vào List thành công! ✨");
+});
+
+// Xóa toàn bộ một List
+document.getElementById("tl-delete-topic-btn").addEventListener("click", ()=>{
+  const topicToDelete = document.getElementById("tl-delete-topic-select").value;
+  if(!topicToDelete) return;
+  if(confirm(`Bạn có chắc chắn muốn xóa toàn bộ List "${topicToDelete}" và các từ trong đó không?`)){
+    // Xóa các từ tự thêm thuộc list này
+    state.customWords = state.customWords.filter(w => w.topic !== topicToDelete);
+    // Nếu list đó chứa từ mặc định, đưa các từ mặc định đó vào danh sách ẩn
+    DEFAULT_WORDS.forEach(w => {
+      if(w.topic === topicToDelete && !state.deletedDefaultIds.includes(w.id)){
+        state.deletedDefaultIds.push(w.id);
+      }
+    });
+    saveState();
+    renderTeacherManage();
+    buildFcDeck();
+    alert(`Đã xóa thành công List "${topicToDelete}"!`);
+  }
 });
 
 /* =========================================================
    SENTENCE PRACTICE (Tích hợp Google Sheet)
    ========================================================= */
-const GOOGLE_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbyoyoRnW6yv3XFiHwhD83ncbVfcqSwzFs5Z_dvjsVedG4RCt1FHWhRO7giKN1LUi68FbQ/exec";
-
 const scTopicSel = document.getElementById("sc-topic");
 fillTopicSelect(scTopicSel);
 scTopicSel.addEventListener("change", renderSentenceStudentList);
@@ -1464,7 +1629,7 @@ openTeacherPanelBtn.addEventListener("click", () => {
       teacherVideoUrl.value = state.globalVideoUrl || "";
       openTeacherPanelBtn.textContent = "🔓 Đang mở khu vực Giáo viên";
     } else {
-      openTeacherPanelBtn.textContent = "🔒 Khu vực Giáo viên";
+      openTeacherPanelBtn.textContent = "🔒 Khu vực Giáo viên (Đổi Video)";
     }
   } else if(pass !== null) {
     alert("Mật khẩu không chính xác!");
@@ -1514,7 +1679,7 @@ saveTeacherVideoBtn.addEventListener("click", () => {
   loadVideoIntoDisplay(newUrl);
   alert("Cập nhật video bài học thành công! Tất cả học sinh truy cập vào sẽ tự động thấy video mới này ✨");
   teacherPanel.classList.remove("active");
-  openTeacherPanelBtn.textContent = "🔒 Khu vực Giáo viên";
+  openTeacherPanelBtn.textContent = "🔒 Khu vực Giáo viên (Đổi Video)";
 });
 
 // Học viên gửi bài chép chính tả
@@ -1537,7 +1702,7 @@ submitDictationBtn.addEventListener("click", async () => {
       },
       body: JSON.stringify({
         studentName: state.studentName || "Học viên ẩn danh",
-        word: "[Chép Chính Tả Video] Link: " + (state.globalVideoUrl || "Chưa rõ link"),
+        word: "[Chép Chính Tả Video] Link: " + (state.globalVideoUrl || "Chura rõ link"),
         sentence: content
       })
     });
