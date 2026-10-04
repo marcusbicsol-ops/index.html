@@ -10,6 +10,9 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="apple-mobile-web-app-title" content="Ôn từ vựng">
 <meta name="format-detection" content="telephone=no">
+<meta http-equiv="Cache-Control" content="no-cache, must-revalidate">
+<meta http-equiv="Pragma" content="no-cache">
+<meta http-equiv="Expires" content="0">
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E%F0%9F%90%BC%3C/text%3E%3C/svg%3E">
 <title>Gấu trúc ôn từ vựng Hán ngữ</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -145,6 +148,9 @@ select{padding-right:8px}
 .opt kbd{font:600 .8rem var(--ui);width:24px;height:24px;border-radius:6px;background:var(--surface2);border:1px solid var(--line);display:grid;place-items:center;flex:none;color:var(--muted)}
 .opt.han span{font-family:var(--han);font-size:1.3rem;font-weight:600}
 .opt.right{border-color:var(--ok);background:var(--ok-bg)}
+.opt.right.flash{animation:okFlash .6s ease}
+input.ans.flash-ok{border-color:var(--ok);background:var(--ok-bg);animation:okFlash .6s ease}
+@keyframes okFlash{0%{transform:scale(1);box-shadow:0 0 0 0 var(--ok)}35%{transform:scale(1.03);box-shadow:0 0 0 6px var(--ok-bg)}100%{transform:scale(1);box-shadow:0 0 0 0 transparent}}
 .opt.wrong{border-color:var(--bad);background:var(--bad-bg)}
 .opt:disabled{cursor:default;color:var(--ink)}
 .type-row{display:flex;gap:8px;width:100%}
@@ -465,6 +471,42 @@ dialog input[type=text]{min-height:40px;border-width:2px;border-radius:12px}
 @media (pointer:coarse){.folder-t{min-height:44px}}
 @media (prefers-reduced-motion:reduce){.caret{transition:none}}
 </style>
+<script>
+/* Tự cập nhật bản mới: mỗi lần mở/tải lại trang, hỏi server (bỏ qua cache của máy) xem file đã đổi chưa.
+   Nếu đã đổi → làm mới cache rồi tải lại để chạy bản mới nhất. Dữ liệu học trong localStorage không bị ảnh hưởng.
+   Có thể gọi tay trong Console: hvCheckUpdate(true) để ép tải lại bản mới. */
+(function () {
+  var KEY = 'hv:buildSig', LOOP = 'hv:reloadedAt';
+  function ls(k, v) { try { if (v === undefined) return localStorage.getItem(k); localStorage.setItem(k, v); } catch (e) {} return null; }
+  function ss(k, v) { try { if (v === undefined) return sessionStorage.getItem(k); sessionStorage.setItem(k, v); } catch (e) {} return null; }
+  function hash(t) { var h = 5381; for (var i = 0; i < t.length; i++) h = ((h << 5) + h + t.charCodeAt(i)) | 0; return 'h' + (h >>> 0).toString(36) + '.' + t.length; }
+  async function serverSig(url) {
+    try {
+      var r = await fetch(url, { method: 'HEAD', cache: 'no-store' });
+      var s = r.ok && (r.headers.get('etag') || r.headers.get('last-modified') || r.headers.get('content-length'));
+      if (s) return s;
+    } catch (e) {}
+    var g = await fetch(url, { cache: 'no-store' });   /* server không trả ETag/Last-Modified: so nội dung */
+    return g.ok ? hash(await g.text()) : '';
+  }
+  window.hvCheckUpdate = async function (force) {
+    try {
+      if (!/^https?:$/.test(location.protocol) || !window.fetch) return false;   /* mở trực tiếp file:// thì bỏ qua */
+      var url = location.href.split('#')[0];
+      var sig = await serverSig(url); if (!sig) return false;
+      var old = ls(KEY);
+      if (!force && (!old || old === sig)) { ls(KEY, sig); return false; }
+      var last = +ss(LOOP) || 0;
+      if (!force && Date.now() - last < 20000) { ls(KEY, sig); return false; }   /* chống tải lại lặp vô hạn */
+      ls(KEY, sig); ss(LOOP, String(Date.now()));
+      try { await fetch(url, { cache: 'reload' }); } catch (e) {}                 /* ghi đè bản cũ trong cache */
+      location.reload();
+      return true;
+    } catch (e) { return false; }
+  };
+  hvCheckUpdate();
+})();
+</script>
 </head>
 <body>
 <div class="bamboo bamboo-l" aria-hidden="true"><svg viewBox="0 0 64 600" preserveAspectRatio="xMinYMax meet" aria-hidden="true"><g fill="var(--bamboo)"><rect x="8" y="0" width="16" height="600" rx="8"></rect><rect x="38" y="140" width="13" height="460" rx="6.5"></rect></g><g fill="var(--accent)" opacity=".55"><rect x="8" y="90" width="16" height="5" rx="2"></rect><rect x="8" y="230" width="16" height="5" rx="2"></rect><rect x="8" y="370" width="16" height="5" rx="2"></rect><rect x="8" y="510" width="16" height="5" rx="2"></rect><rect x="38" y="260" width="13" height="5" rx="2"></rect><rect x="38" y="420" width="13" height="5" rx="2"></rect></g><g fill="var(--bamboo)"><path d="M24 232C40 214 52 190 52 162 38 178 28 202 24 232Z"></path><path d="M24 372C42 360 58 340 60 314 44 326 30 346 24 372Z"></path><path d="M8 100C-4 86 -6 66 0 44 10 58 12 78 8 100Z"></path></g></svg></div>
@@ -604,7 +646,7 @@ function rowsToWords(rows, defList) {
 
 /* ---------- trạng thái ---------- */
 const DEF = { tab: 'browse', scope: null, fields: { han: true, py: true, vi: false, emoji: false, ex: false },
-  qtypes: ['han2vi', 'vi2han', 'han2py', 'cloze'], qcount: 10, prior: true, hint: false, shuf: false, onlyNew: false, chMode: 'han2vi', chSec: 4, chCount: 10, chBestMap: {}, sound: true, hidePy: false, statSort: 'w', statAuto: true, statAll: false };
+  qtypes: ['han2vi', 'vi2han', 'han2py', 'cloze'], qcount: 10, prior: true, hint: false, shuf: false, onlyNew: false, chMode: 'han2vi', chSec: 4, chCount: 10, chBestMap: {}, sound: true, hidePy: false, statSort: 'w', statAuto: true, statAll: false, ptCount: 10, ptRestart: 50, qzRestart: 0 };
 const S = { words: store.get('hv:words', null), prog: store.get('hv:prog', {}), prefs: Object.assign({}, DEF, store.get('hv:prefs', {})), confirm: null };
 const STARS = store.get('hv:stars', {});
 const starred = id => !!STARS[id];
@@ -698,7 +740,7 @@ function sayIdle() {
   if (!n) { say('wow', 'Chào bạn! Thêm file CSV để mình cùng ôn từ nhé 🎋', 0); return; }
   const sw = scopeWords(), k = sw.filter(w => prog(w.id).known).length, tab = S.prefs.tab;
   const base = { browse: 'Bấm vào từng từ để xem đủ nghĩa nhé!', cards: 'Lật thẻ rồi bấm “Đã nhớ” hoặc “Chưa nhớ” nha.',
-    quiz: 'Chọn kiểu câu hỏi rồi bắt đầu thôi!', challenge: 'Nhanh tay nhé, mỗi từ chỉ có vài giây thôi!', stats: 'Mình cùng ôn lại các từ hay sai nhé.', star: 'Ôn riêng các từ đã gắn sao nhé ⭐' }[tab] || '';
+    quiz: 'Chọn kiểu câu hỏi rồi bắt đầu thôi!', pytest: 'Chọn đúng phiên âm trong 4 đáp án nhé!', challenge: 'Nhanh tay nhé, mỗi từ chỉ có vài giây thôi!', stats: 'Mình cùng ôn lại các từ hay sai nhé.', star: 'Ôn riêng các từ đã gắn sao nhé ⭐' }[tab] || '';
   say('happy', `${base} Đã nhớ ${k}/${sw.length} từ 🎋`, 0);
 }
 function react(ok, p) {
@@ -733,7 +775,7 @@ function afterImport(total, added, upd) {
 function render() { renderTabs(); renderScope(); renderView(); renderFoot(); }
 function renderTabs() {
   sayIdle();
-  $('#tabs').innerHTML = [['browse', '📖 Danh sách'], ['star', '⭐ Từ có sao'], ['cards', '🎴 Thẻ ghi nhớ'], ['quiz', '📝 Kiểm tra'], ['challenge', '⚡ Thử thách giờ'], ['stats', '📊 Thống kê']]
+  $('#tabs').innerHTML = [['browse', '📖 Danh sách'], ['star', '⭐ Từ có sao'], ['cards', '🎴 Thẻ ghi nhớ'], ['quiz', '📝 Kiểm tra'], ['pytest', '🀄 KT Pinyin'], ['challenge', '⚡ Thử thách giờ'], ['stats', '📊 Thống kê']]
     .map(([k, l]) => `<button role="tab" aria-selected="${S.prefs.tab === k}" data-act="tab" data-v="${k}">${l}</button>`).join('');
 }
 function renderFoot() {
@@ -743,7 +785,7 @@ function renderView() {
   if (!S.words.length) { $('#view').innerHTML = emptyHTML(); return; }
   if (!scopeWords().length) { $('#view').innerHTML = '<p class="empty">Chưa chọn bộ từ nào. Bấm vào tên bộ từ ở trên để chọn.</p>'; return; }
   const t = S.prefs.tab;
-  if (t === 'browse') renderBrowse(); else if (t === 'cards') renderCards(); else if (t === 'quiz') renderQuiz(); else if (t === 'challenge') renderChallenge(); else if (t === 'star') renderStar(); else renderStats();
+  if (t === 'browse') renderBrowse(); else if (t === 'cards') renderCards(); else if (t === 'quiz') renderQuiz(); else if (t === 'pytest') renderPyTest(); else if (t === 'challenge') renderChallenge(); else if (t === 'star') renderStar(); else renderStats();
 }
 function emptyHTML() {
   return `<div class="panel" style="text-align:center;padding:28px 16px">
@@ -883,6 +925,10 @@ function makeQ(w, pool, tp) {
   }
   return o;
 }
+const FLASH_MS = 650;
+function flashNext(getAns, a, next) { /* đúng: lóe xanh rồi mới sang câu sau (bỏ qua nếu người dùng đã bấm tiếp/thoát) */
+  setTimeout(() => { if (getAns() === a) next(); }, FLASH_MS);
+}
 function startQuiz(words) {
   const pool = scopeWords();
   let ws;
@@ -910,6 +956,7 @@ function renderQuiz() {
     <div class="setup-row">
       <label>Số câu: <select id="qcount">${[[10, '10'], [20, '20'], [30, '30'], [0, 'Tất cả (' + n + ')']].map(([v, l]) => `<option value="${v}" ${S.prefs.qcount === v ? 'selected' : ''}>${l}</option>`).join('')}</select></label>
     </div>
+    <div class="setup-row" style="margin-top:8px">${restartSel('qzrestart', S.prefs.qzRestart)}<span class="muted" style="font-size:.85rem">Sai quá ngưỡng thì xáo lại, làm lại từ đầu</span></div>
     <label class="check"><input type="checkbox" data-act="qopt" data-v="prior" ${S.prefs.prior ? 'checked' : ''}> Ưu tiên từ hay sai và từ chưa nhớ</label>
     <label class="check" style="margin-top:8px"><input type="checkbox" data-act="qopt" data-v="hint" ${S.prefs.hint ? 'checked' : ''}> Hiện emoji gợi ý ở câu hỏi nghĩa</label>
     <p class="muted" style="font-size:.85rem;margin:10px 0 0">Trả lời đúng 2 lần liên tiếp thì từ được đánh dấu “đã nhớ”. Trả lời sai thì bỏ dấu.</p>
@@ -933,7 +980,7 @@ function promptHTML(cur, a) {
 function optsHTML(cur, a, act) {
   const hanOpt = ['vi2han', 'listen', 'cloze'].includes(cur.type);
   return cur.opts.map((o, i) => {
-      let c = ''; if (a) { if (i === cur.correct) c = 'right'; else if (i === a.pick) c = 'wrong'; }
+      let c = ''; if (a) { if (i === cur.correct) c = 'right' + (a.flash ? ' flash' : ''); else if (i === a.pick) c = 'wrong'; }
       return `<button class="opt ${hanOpt ? 'han' : ''} ${c}" data-act="${act}" data-v="${i}" ${a ? 'disabled' : ''}><kbd>${i + 1}</kbd><span>${esc(o)}</span></button>`;
     }).join('');
 }
@@ -944,10 +991,10 @@ function renderPlay() {
   if (cur.opts) {
     body = optsHTML(cur, a, 'pick');
   } else {
-    body = `<div class="type-row"><input id="ans" class="ans" autocomplete="off" autocapitalize="none" spellcheck="false" aria-label="Câu trả lời" value="${esc(qz.val || '')}" ${a ? 'disabled' : ''}>${a ? '' : '<button class="btn primary" data-act="submit">Kiểm tra</button>'}</div>`;
+    body = `<div class="type-row"><input id="ans" class="ans${a && a.flash ? ' flash-ok' : ''}" autocomplete="off" autocapitalize="none" spellcheck="false" aria-label="Câu trả lời" value="${esc(qz.val || '')}" ${a ? 'disabled' : ''}>${a ? '' : '<button class="btn primary" data-act="submit">Kiểm tra</button>'}</div>`;
   }
   let fb = '';
-  if (a) {
+  if (a && !a.flash) {
     fb = `<div class="fb ${a.ok ? 'ok' : 'bad'}"><strong class="${a.ok ? 'ok' : 'bad'}">${a.ok ? 'Đúng rồi!' : 'Chưa đúng'}</strong> ${a.note ? esc(a.note) : ''}
       <div class="fb-word"><span class="big">${esc(w.han)}</span><span class="muted">${esc(w.py)}</span><span>${esc(w.vi)}</span>${HAS_TTS ? `<button class="icon" data-act="speak" data-v="${esc(w.han)}" aria-label="Phát âm">${SPEAKER}</button>` : ''}</div>
       ${w.ex ? `<div class="han muted">${esc(w.ex)}</div>` : ''}
@@ -976,7 +1023,162 @@ function submitTyped() {
 function finish(ok, extra) {
   const cur = qz.qs[qz.i];
   qz.ans = Object.assign({ ok }, extra); record(cur.w.id, ok); qz.res.push({ w: cur.w, ok });
-  renderScope(); renderPlay();
+  renderScope();
+  if (ok && !(extra && extra.note)) { qz.ans.flash = true; const a = qz.ans; renderPlay(); flashNext(() => qz.ans, a, () => ACT.qnext()); return; }
+  renderPlay();
+}
+
+/* ---------- tab KT Pinyin (chuyển từ bản index: 4 đáp án, 3 đáp án nhiễu sinh từ chính pinyin đúng) ----------
+   Hiện Hán tự → chọn đúng pinyin. Đáp án nhiễu: đổi thanh điệu / chỉnh vận mẫu / đổi thanh mẫu dễ nhầm.
+   Nếu tỉ lệ sai (tính từ đầu bài) vượt ngưỡng % đã chọn → xáo lại và làm lại từ đầu. */
+const PYT_TONE = {
+  a: ['a', 'ā', 'á', 'ǎ', 'à'], e: ['e', 'ē', 'é', 'ě', 'è'], i: ['i', 'ī', 'í', 'ǐ', 'ì'],
+  o: ['o', 'ō', 'ó', 'ǒ', 'ò'], u: ['u', 'ū', 'ú', 'ǔ', 'ù'], 'ü': ['ü', 'ǖ', 'ǘ', 'ǚ', 'ǜ']
+};
+const PYT_FINALS = [['iang', 'iong'], ['iang', 'ian'], ['uang', 'uan'], ['ing', 'in'], ['eng', 'en'], ['ang', 'an'], ['ao', 'ou'], ['ui', 'ei'], ['iu', 'iao']];
+const PYT_INITS = [['zh', 'z'], ['ch', 'c'], ['sh', 's'], ['n', 'l'], ['f', 'h'], ['r', 'l']];
+const pytRand = a => a[Math.floor(Math.random() * a.length)];
+function pytToneOf(ch) { for (const b in PYT_TONE) { const i = PYT_TONE[b].indexOf(ch); if (i > 0) return { base: b, tone: i }; } return null; }
+function pytPlain(s) { return s.split('').map(c => { const t = pytToneOf(c); return t ? t.base : c; }).join(''); }
+function pytPlace(plain, tone) {
+  if (!tone) return plain;
+  let idx = -1;
+  if (plain.includes('a')) idx = plain.indexOf('a');
+  else if (plain.includes('e')) idx = plain.indexOf('e');
+  else if (plain.includes('ou')) idx = plain.indexOf('o');
+  else for (let i = plain.length - 1; i >= 0; i--) if ('iuü'.includes(plain[i])) { idx = i; break; }
+  if (idx < 0 || !PYT_TONE[plain[idx]]) return plain;
+  return plain.slice(0, idx) + PYT_TONE[plain[idx]][tone] + plain.slice(idx + 1);
+}
+/* #1: đổi thanh điệu của 1 nguyên âm đã có dấu */
+function pytToneShift(p) {
+  const plain = pytPlain(p), at = [];
+  for (let i = 0; i < p.length; i++) if (p[i] !== plain[i]) at.push(i);
+  if (!at.length) return null;
+  const i = pytRand(at), info = pytToneOf(p[i]); if (!info) return null;
+  let t; do { t = 1 + Math.floor(Math.random() * 4); } while (t === info.tone);
+  return p.slice(0, i) + PYT_TONE[info.base][t] + p.slice(i + 1);
+}
+/* #2: chỉnh nhẹ vận mẫu (an/ang, in/ing, ao/ou…), giữ thanh điệu gốc */
+function pytFinalShift(p) {
+  const plain = pytPlain(p), groups = {};
+  PYT_FINALS.forEach(([a, b]) => [[a, b], [b, a]].forEach(([from, to]) => {
+    let idx = 0;
+    while (true) {
+      const f = plain.indexOf(from, idx); if (f === -1) break;
+      (groups[from.length] = groups[from.length] || []).push({ s: f, e: f + from.length, to });
+      idx = f + 1;
+    }
+  }));
+  const lens = Object.keys(groups).map(Number).sort((x, y) => y - x);
+  if (!lens.length) return null;
+  const m = pytRand(groups[lens[0]]);
+  let tone = 0;
+  for (let i = m.s; i < m.e; i++) if (p[i] !== plain[i]) { const t = pytToneOf(p[i]); tone = t ? t.tone : 0; break; }
+  return p.slice(0, m.s) + (tone ? pytPlace(m.to, tone) : m.to) + p.slice(m.e);
+}
+/* #3: đổi thanh mẫu đầu âm tiết dễ nhầm (zh/z, ch/c, sh/s, n/l, f/h, r/l) */
+function pytInitShift(p) {
+  const plain = pytPlain(p), cand = [];
+  PYT_INITS.forEach(([a, b]) => [[a, b], [b, a]].forEach(([from, to]) => {
+    let idx = 0;
+    while (true) {
+      const f = plain.indexOf(from, idx); if (f === -1) break;
+      const bareDigraph = from.length === 1 && plain[f + 1] === 'h' && 'zcs'.includes(from);
+      if (!bareDigraph && (f === 0 || plain[f - 1] === ' ')) cand.push({ s: f, e: f + from.length, to });
+      idx = f + 1;
+    }
+  }));
+  if (!cand.length) return null;
+  const c = pytRand(cand);
+  return p.slice(0, c.s) + c.to + p.slice(c.e);
+}
+/* #4 (bổ sung cho từ thanh nhẹ, không có dấu nào để đổi): thêm 1 thanh điệu vào cụm nguyên âm đầu tiên */
+function pytAddTone(p) {
+  const m = /[aeiouü]+/.exec(p); if (!m) return null;
+  return p.slice(0, m.index) + pytPlace(m[0], 1 + Math.floor(Math.random() * 4)) + p.slice(m.index + m[0].length);
+}
+function pytDistractors(correct, count, others) {
+  const out = new Set(), fns = [pytToneShift, pytFinalShift, pytToneShift, pytFinalShift, pytInitShift, pytAddTone];
+  for (let a = 0; out.size < count && a < 60; a++) {
+    const d = fns[a % fns.length](correct);
+    if (d && d !== correct && !out.has(d)) out.add(d);
+  }
+  /* dự phòng cuối: mượn pinyin của từ khác */
+  for (const o of shuffle(others || [])) { if (out.size >= count) break; if (o && o !== correct && !out.has(o)) out.add(o); }
+  return [...out].slice(0, count);
+}
+const PT_RESTARTS = [[0, 'Tắt'], [20, '20%'], [30, '30%'], [40, '40%'], [50, '50%'], [60, '60%']];
+const restartSel = (id, val) => `<label>Sai quá: <select id="${id}">${PT_RESTARTS.map(([v, l]) => `<option value="${v}" ${val === v ? 'selected' : ''}>${l}</option>`).join('')}</select></label>`;
+const wrongPct = (ok, bad) => (ok + bad) ? Math.round(bad / (ok + bad) * 100) : 0;
+
+let pt = { phase: 'setup' };
+function ptMake() {
+  const w = pt.ws[pt.i], pool = scopeWords();
+  const correct = String(w.py || '').normalize('NFC');
+  const others = pool.map(x => String(x.py || '').normalize('NFC'));
+  const opts = shuffle([correct, ...pytDistractors(correct, 3, others)]);
+  pt.cur = { w, correct, opts, ci: opts.indexOf(correct) };
+}
+function ptStart(words) {
+  const pool = scopeWords().filter(w => w.py);
+  let ws;
+  if (words) ws = shuffle(words);
+  else { ws = shuffle(pool); const n = S.prefs.ptCount === 0 ? ws.length : Math.min(S.prefs.ptCount, ws.length); ws = ws.slice(0, n); }
+  if (!ws.length) return;
+  pt = { phase: 'play', ws, i: 0, ans: null, ok: 0, bad: 0, round: 1, ever: new Map() };
+  ptMake(); renderView();
+}
+function renderPyTest() {
+  if (pt.phase === 'play') return renderPyPlay();
+  if (pt.phase === 'result') return renderPyResult();
+  const n = scopeWords().filter(w => w.py).length;
+  $('#view').innerHTML = `<div class="panel">
+    <h2>Kiểm tra Pinyin</h2>
+    <p class="muted" style="margin:0 0 10px">Nhìn Hán tự, chọn đúng phiên âm trong 4 đáp án. Có đáp án bị đổi thanh điệu hoặc vận mẫu để đánh lừa.</p>
+    <div class="setup-row">
+      <label>Số câu: <select id="ptcount">${[[10, '10'], [20, '20'], [30, '30'], [0, 'Tất cả (' + n + ')']].map(([v, l]) => `<option value="${v}" ${S.prefs.ptCount === v ? 'selected' : ''}>${l}</option>`).join('')}</select></label>
+      ${restartSel('ptrestart', S.prefs.ptRestart)}
+    </div>
+    <p class="muted" style="font-size:.85rem;margin:10px 0 0">Nếu tỉ lệ trả lời sai (tính từ đầu bài) vượt ngưỡng, bài sẽ xáo lại và làm lại từ đầu cho tới khi thuộc chắc. Chọn “Tắt” nếu không muốn làm lại.</p>
+    <div class="btn-row"><button class="btn primary" data-act="ptstart" ${n < 1 ? 'disabled' : ''}>Bắt đầu kiểm tra Pinyin</button></div>
+  </div>`;
+}
+function renderPyPlay() {
+  const n = pt.ws.length, c = pt.cur, w = c.w, a = pt.ans, thr = S.prefs.ptRestart;
+  const body = c.opts.map((o, i) => {
+    let k = ''; if (a) { if (i === c.ci) k = 'right' + (a.flash ? ' flash' : ''); else if (i === a.pick) k = 'wrong'; }
+    return `<button class="opt ${k}" data-act="ptpick" data-v="${i}" ${a ? 'disabled' : ''}><kbd>${i + 1}</kbd><span>${esc(o)}</span></button>`;
+  }).join('');
+  let fb = '';
+  if (a && !a.flash) {
+    const pct = wrongPct(pt.ok, pt.bad), again = thr > 0 && pct > thr, last = pt.i + 1 >= n;
+    fb = `<div class="fb ${a.ok ? 'ok' : 'bad'}"><strong class="${a.ok ? 'ok' : 'bad'}">${a.ok ? 'Đúng rồi!' : 'Chưa đúng'}</strong>
+      <div class="fb-word"><span class="big">${esc(w.han)}</span><span class="muted">${esc(w.py)}</span><span>${esc(w.vi)}</span>${HAS_TTS ? `<button class="icon" data-act="speak" data-v="${esc(w.han)}" aria-label="Nghe">${SPEAKER}</button>` : ''}</div>
+      ${again ? `<div class="muted" style="margin-top:6px">Đang sai ${pct}%, quá ngưỡng ${thr}%. Bài sẽ xáo lại và làm lại từ đầu.</div>` : ''}
+      <button class="btn primary" data-act="ptnext">${again ? 'Làm lại từ đầu' : last ? 'Xem kết quả' : 'Câu tiếp theo'}</button></div>`;
+  }
+  $('#view').innerHTML = `<div class="q-head"><span class="muted">Câu ${pt.i + 1}/${n}${pt.round > 1 ? ' · lượt ' + pt.round : ''}</span><div class="bar"><i style="width:${Math.round(pt.i / n * 100)}%"></i></div><span class="muted">Đúng ${pt.ok} · Sai ${pt.bad}</span><button class="btn small ghost" data-act="ptquit">Thoát</button></div>
+    <div class="q-card"><div class="q-label">Phiên âm đúng của từ này?</div>${tian(w.han)}</div>${body}${fb}`;
+}
+function renderPyResult() {
+  const n = pt.ws.length, pct = n ? Math.round(pt.ok / n * 100) : 0, wrong = [...pt.ever.values()];
+  const msg = pct >= 90 ? 'Rất vững. Bạn phân biệt thanh điệu rất tốt.' : pct >= 70 ? 'Khá tốt. Ôn thêm vài từ còn sai là chắc.' : 'Còn nhiều từ cần ôn. Thử xem lại bằng thẻ ghi nhớ rồi làm lại.';
+  $('#view').innerHTML = `<div class="panel" style="text-align:center"><div class="big-panda">${panda(pct >= 70 ? 'cheer' : 'happy', 96)}</div><div class="muted">Kết quả Pinyin${pt.round > 1 ? ' (lượt ' + pt.round + ')' : ''}</div><div class="score">${pt.ok}/${n}</div><p>${msg}</p></div>
+    ${wrong.length ? `<div class="panel wrong-list"><h2>Các từ cần ôn lại (${wrong.length})</h2>${wrong.map(w => `<div class="w"><span class="h">${esc(w.han)}</span><span class="muted">${esc(w.py)}</span><span>${esc(w.vi)}</span></div>`).join('')}</div>` : ''}
+    <div class="btn-row">${wrong.length ? '<button class="btn primary" data-act="ptretry">Luyện lại các từ sai</button>' : ''}<button class="btn" data-act="ptstart">Làm bài mới</button><button class="btn ghost" data-act="ptsetup">Đổi cài đặt</button></div>`;
+}
+/* Kiểm tra thường: nếu bật “Sai quá X%” thì xáo lại và làm lại từ đầu (trả về true nếu đã làm lại) */
+function quizRestartCheck() {
+  const thr = S.prefs.qzRestart; if (!thr || !qz.res.length) return false;
+  const bad = qz.res.filter(r => !r.ok).length, pct = wrongPct(qz.res.length - bad, bad);
+  if (pct <= thr) return false;
+  toast(`Sai quá ${thr}% (đang sai ${pct}%). Bài sẽ làm lại từ đầu, cố lên nhé!`);
+  const pool = scopeWords();
+  qz.qs = shuffle(qz.qs.map(q => q.w)).map(w => makeQ(w, pool));
+  qz.i = 0; qz.res = []; qz.ans = null; qz.val = '';
+  renderView(); afterQ();
+  return true;
 }
 
 /* ---------- tab Thử thách giờ (mô thức "cực tốc") ----------
@@ -1173,6 +1375,7 @@ const ACT = {
   tab(v) { chStop(); if (ch.phase === 'play') ch = { phase: 'idle' }; S.prefs.tab = v; savePrefs(); renderTabs(); renderView(); },
   scope(v) { let s = sel(); s = s.includes(v) ? s.filter(x => x !== v) : [...s, v]; S.prefs.scope = s; savePrefs(); fc.sig = null; qz = { phase: 'setup' }; chStop(); ch = { phase: 'idle' }; render(); },
   selall() { S.prefs.scope = null; savePrefs(); fc.sig = null; render(); },
+  selnone() { S.prefs.scope = []; savePrefs(); fc.sig = null; qz = { phase: 'setup' }; chStop(); ch = { phase: 'idle' }; render(); },
   dellist(v) {
     if (S.confirm === v) {
       S.words = S.words.filter(w => w.list !== v); S.confirm = null; FOLDERS.forEach(f => { f.lists = f.lists.filter(l => l !== v); }); saveFolders(); saveWords(); fc.sig = null; toast('Đã xoá bộ “' + v + '”.'); render();
@@ -1223,7 +1426,9 @@ const ACT = {
   pick(v) {
     const cur = qz.qs[qz.i]; if (qz.ans || !cur.opts) return;
     const i = +v; const ok = i === cur.correct; qz.ans = { ok, pick: i }; record(cur.w.id, ok); qz.res.push({ w: cur.w, ok });
-    renderScope(); renderPlay();
+    renderScope();
+    if (ok) { qz.ans.flash = true; const a = qz.ans; renderPlay(); flashNext(() => qz.ans, a, () => ACT.qnext()); return; }
+    renderPlay();
   },
   submit() { submitTyped(); },
   chstart() {
@@ -1245,7 +1450,9 @@ const ACT = {
   statch() { const ws = statBad().filter(w => !statHidden(w)).slice(0, 30); if (!ws.length) return; S.prefs.tab = 'challenge'; savePrefs(); renderTabs(); chBegin(ws, 'bad'); },
   statcards() { const ws = statBad().filter(w => !statHidden(w)).slice(0, 30); if (!ws.length) return; fc = { sig: 'custom', ids: ws.map(w => w.id), i: 0, flip: false, yes: 0 }; S.prefs.tab = 'cards'; savePrefs(); renderTabs(); renderView(); },
   qnext() {
-    qz.val = ''; qz.ans = null; qz.i++;
+    qz.val = ''; qz.ans = null;
+    if (quizRestartCheck()) return;
+    qz.i++;
     if (qz.i >= qz.qs.length) {
       qz.phase = 'result';
       const okN = qz.res.filter(r => r.ok).length, pc = qz.res.length ? Math.round(okN / qz.res.length * 100) : 0;
@@ -1254,6 +1461,36 @@ const ACT = {
     renderView(); afterQ();
   }
 };
+/* KT Pinyin */
+ACT.ptstart = () => { ptStart(); };
+ACT.ptsetup = () => { pt = { phase: 'setup' }; renderView(); };
+ACT.ptquit = () => { pt = { phase: 'setup' }; renderView(); };
+ACT.ptretry = () => { const ws = [...pt.ever.values()]; if (ws.length) ptStart(ws); };
+ACT.ptpick = v => {
+  if (pt.phase !== 'play' || pt.ans) return;
+  const c = pt.cur, i = +v, ok = i === c.ci;
+  pt.ans = { ok, pick: i };
+  if (ok) pt.ok++; else { pt.bad++; pt.ever.set(c.w.id, c.w); }
+  try { sfx[ok ? 'ok' : 'bad'](); } catch (e) {}
+  record(c.w.id, ok); renderScope();
+  if (ok) { pt.ans.flash = true; const a = pt.ans; renderPyPlay(); flashNext(() => pt.ans, a, () => ACT.ptnext()); return; }
+  renderPyPlay();
+};
+ACT.ptnext = () => {
+  if (pt.phase !== 'play' || !pt.ans) return;
+  const thr = S.prefs.ptRestart;
+  if (thr > 0 && wrongPct(pt.ok, pt.bad) > thr) {
+    toast(`Sai quá ${thr}% (đang sai ${wrongPct(pt.ok, pt.bad)}%). Bài sẽ làm lại từ đầu, cố lên nhé!`);
+    pt.ws = shuffle(pt.ws); pt.i = 0; pt.ok = 0; pt.bad = 0; pt.round++;
+  } else pt.i++;
+  pt.ans = null;
+  if (pt.i >= pt.ws.length) {
+    pt.phase = 'result';
+    const pc = pt.ws.length ? Math.round(pt.ok / pt.ws.length * 100) : 0;
+    say(pc >= 70 ? 'cheer' : 'happy', pc >= 90 ? 'Tuyệt vời! Bạn nghe thanh điệu rất chuẩn 🎉' : pc >= 70 ? 'Khá tốt! Ôn thêm vài từ là chắc.' : 'Cố lên! Mình ôn lại từ sai nhé.', 0);
+  } else ptMake();
+  renderView();
+};
 document.addEventListener('click', e => {
   const el = e.target.closest('[data-act]'); if (!el || el.tagName === 'INPUT') return;
   const f = ACT[el.dataset.act]; if (f) f(el.dataset.v, el, e);
@@ -1261,6 +1498,9 @@ document.addEventListener('click', e => {
 document.addEventListener('change', e => {
   const t = e.target;
   if (t.id === 'qcount') { S.prefs.qcount = +t.value; savePrefs(); }
+  else if (t.id === 'qzrestart') { S.prefs.qzRestart = +t.value; savePrefs(); }
+  else if (t.id === 'ptcount') { S.prefs.ptCount = +t.value; savePrefs(); }
+  else if (t.id === 'ptrestart') { S.prefs.ptRestart = +t.value; savePrefs(); }
   else if (t.id === 'chsec') { S.prefs.chSec = +t.value; savePrefs(); chIdle(); }
   else if (t.name === 'tm-mode') { const s = $('#tm-split-options'); if (s) s.style.display = t.value === 'split' ? 'flex' : 'none'; }
   else if (t.dataset && t.dataset.act === 'chhide') { S.prefs.hidePy = t.checked; savePrefs(); const a = $('#tm-area'); if (a) a.classList.toggle('hide-py', t.checked); }
@@ -1291,6 +1531,9 @@ document.addEventListener('keydown', e => {
     const cur = qz.qs[qz.i];
     if (!qz.ans && cur.opts && /^[1-4]$/.test(e.key) && +e.key <= cur.opts.length) ACT.pick(String(+e.key - 1));
     else if (qz.ans && e.key === 'Enter' && tag !== 'BUTTON') { e.preventDefault(); ACT.qnext(); }
+  } else if (tab === 'pytest' && pt.phase === 'play' && pt.cur) {
+    if (!pt.ans && /^[1-4]$/.test(e.key) && +e.key <= pt.cur.opts.length) ACT.ptpick(String(+e.key - 1));
+    else if (pt.ans && e.key === 'Enter' && tag !== 'BUTTON') { e.preventDefault(); ACT.ptnext(); }
   }
 });
 /* kéo thả file */
@@ -1483,7 +1726,8 @@ function renderScope() {
   $('#scope').innerHTML = `<div class="panel">
     <div class="panel-h"><h2 style="margin:0">Bộ từ đang ôn</h2><span class="muted">${sw.length} từ · đã nhớ ${known}</span>
       <button class="btn small" data-act="fnew">📁 Tạo thư mục</button>
-      <button class="btn small ghost sp" data-act="selall">Chọn tất cả</button></div>
+      <button class="btn small ghost sp" data-act="selall">Chọn tất cả</button>
+      <button class="btn small ghost" data-act="selnone">Bỏ chọn tất cả</button></div>
     ${folders}
     ${loose.length ? (FOLDERS.length ? '<div class="loose-h">Chưa vào thư mục</div>' : '') + `<div class="chips">${loose.map(([n, c]) => listChip(n, c, s)).join('')}</div>` : ''}
   </div>`;
