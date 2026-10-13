@@ -4942,19 +4942,51 @@ let _sharedConfigSyncTimer = null;
    kéo dữ liệu trong lúc đó — giống cơ chế `_progressSyncTimer` đã dùng cho
    tiến trình học viên. */
 let _sharedConfigPushPending = false;
+/* FIX (list từ vựng biến mất qua đêm — 13/10): CHỈ cho phép đẩy cấu hình lên
+   server sau khi máy này đã TẢI THÀNH CÔNG cấu hình từ server ít nhất 1 lần
+   (hoặc server xác nhận chưa có gì). Nếu chưa, máy đang giữ bản localStorage
+   cũ/mặc định -> đẩy lên sẽ ĐÈ MẤT dữ liệu thật của giáo viên. */
+let _sharedConfigServerKnown_ = false;
+let _sharedConfigRetryTimer_ = null;
+function _showSharedConfigSyncWarn_(on) {
+  try {
+    let el = document.getElementById("shared-config-sync-warn");
+    if (!on) { if (el) el.remove(); return; }
+    if (!el) {
+      el = document.createElement("div");
+      el.id = "shared-config-sync-warn";
+      el.style.cssText = "position:fixed;left:50%;transform:translateX(-50%);bottom:12px;z-index:99999;background:#b3261e;color:#fff;padding:8px 16px;border-radius:999px;font-size:13px;font-weight:700;box-shadow:0 2px 10px rgba(0,0,0,.3);";
+      el.textContent = "⚠️ Chưa lưu được lên máy chủ — đang tự thử lại, đừng đóng trang!";
+      document.body.appendChild(el);
+    }
+  } catch (e) {}
+}
+function _scheduleSharedConfigRetry_() {
+  clearTimeout(_sharedConfigRetryTimer_);
+  _sharedConfigRetryTimer_ = setTimeout(() => { _sharedConfigPushPending = false; pushSharedConfigToServer(); }, 10000);
+}
 function pushSharedConfigToServer() {
   /* Chỉ đẩy lên server khi cấu hình chung THỰC SỰ thay đổi (giáo viên
-     thêm/sửa lớp, từ vựng, màu sắc...). Tránh việc mỗi lần học sinh
-     làm bài (saveState chạy liên tục) lại ghi đè cấu hình chung bằng
-     bản cũ đang có trên máy của học sinh đó. */
+     thêm/sửa lớp, từ vựng, màu sắc...). */
+  if (!_sharedConfigServerKnown_) return; // chưa tải được bản thật từ server -> tuyệt đối không ghi đè
   const currentJson = JSON.stringify(captureSharedConfig());
   if (currentJson === _lastSharedConfigJson) return;
   clearTimeout(_sharedConfigSyncTimer);
   _sharedConfigPushPending = true;
   _sharedConfigSyncTimer = setTimeout(() => {
-    _lastSharedConfigJson = currentJson;
     callServer("save_shared_config", { config: JSON.parse(currentJson) })
-      .finally(() => { _sharedConfigPushPending = false; });
+      .then(res => {
+        if (res && res.ok) {
+          /* CHỈ đánh dấu "đã đồng bộ" khi server xác nhận thật sự đã lưu */
+          _lastSharedConfigJson = currentJson;
+          _sharedConfigPushPending = false;
+          _showSharedConfigSyncWarn_(false);
+        } else {
+          console.error("save_shared_config thất bại, sẽ thử lại sau 10s:", res);
+          _showSharedConfigSyncWarn_(true);
+          _scheduleSharedConfigRetry_(); // giữ cờ pending để poll không ghi đè bản mới bằng bản cũ trên server
+        }
+      });
   }, 1500);
 }
 
@@ -4969,13 +5001,27 @@ function pushSharedConfigToServer() {
    Hàm dưới đây đẩy lên server NGAY LẬP TỨC (bỏ qua debounce) và CHỜ
    server xác nhận xong mới coi là hoàn tất — dùng cho các thao tác quan
    trọng, không thể chờ debounce. */
-function pushSharedConfigNow() {
+async function pushSharedConfigNow() {
   clearTimeout(_sharedConfigSyncTimer);
+  if (!_sharedConfigServerKnown_) {
+    /* Chưa từng tải được cấu hình thật -> thử tải ngay; vẫn không được thì
+       từ chối lưu (để caller báo lỗi cho giáo viên) thay vì đè server. */
+    try { await syncSharedConfigFromServer(); } catch (e) {}
+    if (!_sharedConfigServerKnown_) throw new Error("shared_config_not_loaded");
+  }
   const currentJson = JSON.stringify(captureSharedConfig());
   _sharedConfigPushPending = true;
-  return callServer("save_shared_config", { config: JSON.parse(currentJson) })
-    .then(() => { _lastSharedConfigJson = currentJson; })
-    .finally(() => { _sharedConfigPushPending = false; });
+  const res = await callServer("save_shared_config", { config: JSON.parse(currentJson) });
+  if (res && res.ok) {
+    _lastSharedConfigJson = currentJson;
+    _sharedConfigPushPending = false;
+    _showSharedConfigSyncWarn_(false);
+    return res;
+  }
+  console.error("save_shared_config (Now) thất bại:", res);
+  _showSharedConfigSyncWarn_(true);
+  _scheduleSharedConfigRetry_(); // giữ pending, tự thử lại; caller vẫn nhận lỗi qua .catch
+  throw new Error("save_shared_config_failed");
 }
 
 /* Gọi 1 lần khi app khởi động: nếu server đã có cấu hình chung (do
@@ -5012,6 +5058,7 @@ async function syncSharedConfigFromServer(knownStamp) {
      quả lần kéo này là stale và bỏ qua hoàn toàn. */
   if (_sharedConfigPushPending) return;
   if (res && res.ok && res.found && res.config) {
+    _sharedConfigServerKnown_ = true;
     applySharedConfig(res.config);
     sanitizeState(state);
     _lastSharedConfigJson = JSON.stringify(captureSharedConfig());
@@ -5028,9 +5075,15 @@ async function syncSharedConfigFromServer(knownStamp) {
     saveState();
     if (knownStamp) _syncStamps_.config = knownStamp;
     return true; // 01/10: báo cho pollLiveUpdates biết đã áp dụng bản cấu hình thật từ server
-  } else {
+  } else if (res && res.ok && res.found === false) {
+    /* Server XÁC NHẬN chưa có cấu hình nào -> mới được đẩy bản hiện tại làm bản gốc */
+    _sharedConfigServerKnown_ = true;
     _lastSharedConfigJson = null;
     pushSharedConfigToServer();
+  } else {
+    /* FIX: tải THẤT BẠI (mất mạng, Supabase lỗi/hết quota...) — TUYỆT ĐỐI không đẩy
+       bản cục bộ lên server như trước đây (đó là nguyên nhân xóa mất list). */
+    console.warn("get_shared_config thất bại — giữ nguyên dữ liệu, không ghi đè server:", res);
   }
 }
 
@@ -5451,7 +5504,7 @@ async function pollLiveUpdates() {
         Có dấu vân tay -> chỉ tải khi đổi. Không có -> luật cũ (màn hình cần
         dữ liệu mới ngay thì mỗi lượt, còn lại mỗi N lượt). */
   const configStampKnown = !!(stamps && stamps.config);
-  const needConfig = configStampKnown
+  const needConfig = !_sharedConfigServerKnown_ ? true : configStampKnown
     ? (forceFull || st.config !== stamps.config)
     : (sharedConfigNeedsFastPoll_() || (tick % SHARED_CONFIG_SLOW_POLL_EVERY_N_TICKS === 0));
   if (needConfig) {
