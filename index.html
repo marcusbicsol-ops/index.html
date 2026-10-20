@@ -3244,20 +3244,31 @@ function getDestinyStarId(badges) {
   });
   return bestStar; // 0 = chưa có Sao Bản Mệnh
 }
-function getDestinyGateDiscount(badges) {
+const DESTINY_MAX_LEVEL = 5, DESTINY_MIN_PRICE_RATIO = 0.5; /* cấp tối đa 5; giá ải sau giảm không thấp hơn 50% giá gốc */
+function getDestinyLevel(badges) {
+  const b = Array.isArray(badges) ? badges : [];
+  if (!getDestinyStarId(b)) return 0;
+  let bn = 0, lv = 1;
+  b.forEach(x => { const m = /^sbl_(\d+)_([1-5])$/.exec(String(x)); if (m && parseInt(m[1], 10) > bn) { bn = parseInt(m[1], 10); lv = parseInt(m[2], 10); } });
+  return lv;
+}
+function getDestinyGateDiscount(badges, base) {
   try {
     const b = Array.isArray(badges) ? badges
       : ((typeof state !== "undefined" && state && state.gamification && state.gamification.unlockedBadges) || []);
-    return getDestinyStarId(b) ? DESTINY_GATE_DISCOUNT : 0;
+    let d = getDestinyLevel(b) * DESTINY_GATE_DISCOUNT;
+    if (base > 0) d = Math.min(d, Math.floor(base * (1 - DESTINY_MIN_PRICE_RATIO)));
+    return d;
   } catch (e) { return 0; }
 }
+function destinyPrice(base, badges) { return Math.max(0, base - getDestinyGateDiscount(badges, base)); }
 /* Mỗi Ải Luân Hồi tiếp theo tốn Trúc GẤP ĐÔI ải trước: Ải 1 (LV40) = 300,
    Ải 2 (LV50) = 600, Ải 3 (LV60) = 1200, Ải 4 (LV70) = 2400... Dùng
    reincarnationGateIndex() để biết đây là ải thứ mấy rồi nhân REINCARNATION_COST
    lên theo lũy thừa 2. */
 function getReincarnationCostForGate(gateLevel, badges) {
   const idx = Math.max(1, reincarnationGateIndex(gateLevel || REINCARNATION_START_LEVEL));
-  return Math.max(0, REINCARNATION_COST * Math.pow(2, idx - 1) - getDestinyGateDiscount(badges));
+  return destinyPrice(REINCARNATION_COST * Math.pow(2, idx - 1), badges);
 }
 /* true nếu `lv` là 1 mốc "Ải Luân Hồi" (40, 50, 60...) */
 function isReincarnationGateLevel(lv) {
@@ -3293,7 +3304,7 @@ const TRIBULATION_BASE_COST = 1200;
    Ải Luân Hồi ở trên. */
 function getTribulationCostForGate(gateLevel, badges) {
   const idx = Math.max(1, tribulationGateIndex(gateLevel || TRIBULATION_START_LEVEL));
-  return Math.max(0, TRIBULATION_BASE_COST * Math.pow(2, idx - 1) - getDestinyGateDiscount(badges));
+  return destinyPrice(TRIBULATION_BASE_COST * Math.pow(2, idx - 1), badges);
 }
 /* true nếu `lv` là 1 mốc "Kiếp Nạn" (70, 85, 100...) */
 function isTribulationGateLevel(lv) {
@@ -3318,7 +3329,7 @@ const LEGACY_GATES_MAX_LEVEL = 100;
 const ASCENSION_START_LEVEL = 125;
 const ASCENSION_STEP = 25;
 const ASCENSION_COST = 20000;
-function getAscensionCostForGate(gateLevel, badges) { return Math.max(0, ASCENSION_COST - getDestinyGateDiscount(badges)); }
+function getAscensionCostForGate(gateLevel, badges) { return destinyPrice(ASCENSION_COST, badges); }
 /* true nếu `lv` là 1 mốc "Cổng Phi Thăng" (125, 150, 175...) */
 function isAscensionGateLevel(lv) {
   return lv >= ASCENSION_START_LEVEL && (lv - ASCENSION_START_LEVEL) % ASCENSION_STEP === 0;
@@ -16157,23 +16168,25 @@ window.addEventListener("DOMContentLoaded", () => {
 
   function esc(s){ return String(s==null?"":s).replace(/[&<>"]/g,function(c){return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c];}); }
   function starOf(badges){ try{ return (typeof getDestinyStarId==="function"?getDestinyStarId(badges):0)||0; }catch(e){ return 0; } }
+  function lvOf(b){ try{ return (typeof getDestinyLevel==="function"?getDestinyLevel(b):0)||0; }catch(e){ return 0; } }
+  function lvMine(){ try{ return lvOf(state&&state.gamification&&state.gamification.unlockedBadges); }catch(e){ return 0; } }
   function mine(){ try{ return starOf(state&&state.gamification&&state.gamification.unlockedBadges); }catch(e){ return 0; } }
 
   /* Huy hiệu siêu sao. opts.lg = bản to (dùng ở bảng chọn). */
   function html(id,opts){
     id=id|0; if(id<1||id>12) return "";
     opts=opts||{};
-    var p=PAL[id], nm=NAMES[id];
-    return '<span class="sbm'+(opts.lg?' sbm-lg':'')+'" style="--c1:'+p[0]+';--c2:'+p[1]+';--c3:'+p[2]+';--g:'+p[3]+'"'+
-      ' title="'+esc("Sao Bản Mệnh: "+nm+" — huy hiệu siêu sao của chòm sao này. Có Sao Bản Mệnh thì các ải Luân Hồi / Độ Kiếp / Phi Thăng giảm "+DISC+" Trúc.")+'">'+
+    var p=PAL[id], nm=NAMES[id], lv=Math.max(1,Math.min(5,opts.lv|0||1));
+    return '<span class="sbm'+(opts.lg?' sbm-lg':'')+(lv>=2?' sbm-l'+lv:'')+'" style="--c1:'+p[0]+';--c2:'+p[1]+';--c3:'+p[2]+';--g:'+p[3]+'"'+
+      ' title="'+esc("Sao Bản Mệnh: "+nm+" — huy hiệu siêu sao của chòm sao này. Mỗi cấp Sao Bản Mệnh giảm thêm "+DISC+" Trúc ở các ải Luân Hồi / Độ Kiếp / Phi Thăng (tối đa cấp 5).")+'">'+
       '<span class="sbm-orb"><span class="sbm-g">'+GLYPH[id]+'\uFE0E</span></span>'+
-      '<span class="sbm-n">'+esc(nm)+'</span>'+
-      '<i class="sbm-sp sbm-sp1"></i><i class="sbm-sp sbm-sp2"></i><i class="sbm-sp sbm-sp3"></i></span>';
+      '<span class="sbm-n">'+esc(nm)+'</span>'+(lv>=2?'<span class="sbm-lv">'+(lv>=5?'👑 ':'')+'Lv.'+lv+'</span>':'')+
+      '<i class="sbm-sp sbm-sp1"></i><i class="sbm-sp sbm-sp2"></i><i class="sbm-sp sbm-sp3"></i>'+(lv>=3?'<i class="sbm-sp sbm-sp4"></i><i class="sbm-sp sbm-sp5"></i>':'')+'</span>';
   }
   /* Câu ghi chú ưu đãi gắn vào cửa sổ Luân Hồi / Độ Kiếp / Phi Thăng của chính mình */
   function gateNote(){
     var id=mine(); if(!id) return "";
-    return ' ✨ Ưu đãi Sao Bản Mệnh '+GLYPH[id]+'\uFE0E '+esc(NAMES[id])+': giá ải này đã được giảm '+DISC+' 🎋.';
+    return ' ✨ Ưu đãi Sao Bản Mệnh '+GLYPH[id]+'\uFE0E '+esc(NAMES[id])+': giá ải này được giảm tối đa '+(DISC*lvMine())+' 🎋 (Lv.'+lvMine()+', giá không thấp hơn 50% giá gốc).';
   }
   /* Cập nhật ngay trên máy mình sau khi server báo chọn/đổi thành công (bỏ id sbm_ cũ, thêm id mới) */
   function applyLocal(id){
@@ -16182,13 +16195,19 @@ window.addEventListener("DOMContentLoaded", () => {
     g.unlockedBadges=a.filter(function(x){ return !/^sbm_\d+_\d+$/.test(String(x)); }).concat([id]);
     try{ if(typeof saveState==="function") saveState(); }catch(e){}
   }
-  window.SBM={NAMES:NAMES,GLYPH:GLYPH,DISC:DISC,html:html,starOf:starOf,mine:mine,gateNote:gateNote,applyLocal:applyLocal};
+  function applyLevelLocal(id){
+    var g=state&&state.gamification; if(!g||!id) return;
+    var a=Array.isArray(g.unlockedBadges)?g.unlockedBadges:[];
+    g.unlockedBadges=a.filter(function(x){ return !/^sbl_\d+_\d+$/.test(String(x)); }).concat([id]);
+    try{ if(typeof saveState==="function") saveState(); }catch(e){}
+  }
+  window.SBM={NAMES:NAMES,GLYPH:GLYPH,DISC:DISC,html:html,starOf:starOf,mine:mine,lv:lvMine,lvOf:lvOf,gateNote:gateNote,applyLocal:applyLocal,applyLevelLocal:applyLevelLocal};
 
   /* ---- Bảng Xếp Hạng: bọc thêm vào hook renderDebtTagHtml_ có sẵn (huy hiệu sao nằm ngay cạnh tên, trước các tag khác) ---- */
   var _prev=window.renderDebtTagHtml_;
   window.renderDebtTagHtml_=function(p){
     var h=""; try{ if(typeof _prev==="function") h=_prev.apply(this,arguments)||""; }catch(e){}
-    try{ var id=(p&&Array.isArray(p.badges))?starOf(p.badges):0; if(id) h=html(id)+h; }catch(e){}
+    try{ var id=(p&&Array.isArray(p.badges))?starOf(p.badges):0; if(id) h=html(id,{lv:lvOf(p.badges)})+h; }catch(e){}
     return h;
   };
 
@@ -16211,6 +16230,14 @@ window.addEventListener("DOMContentLoaded", () => {
     "@keyframes sbmSpin{to{transform:rotate(360deg);}}"+
     "@keyframes sbmSweep{0%,55%{transform:translateX(-170%) skewX(-18deg);}100%{transform:translateX(440%) skewX(-18deg);}}"+
     "@keyframes sbmTw{0%,100%{opacity:0;transform:scale(.3);}50%{opacity:1;transform:scale(1);}}"+
+    ".sbm.sbm-l2{box-shadow:0 0 0 1.5px rgba(255,255,255,.9) inset,0 0 0 3px rgba(var(--g),.5),0 2px 12px rgba(var(--g),.75);}"+
+    ".sbm.sbm-l3{box-shadow:0 0 0 1.5px #fff inset,0 0 0 3px rgba(var(--g),.65),0 0 16px 2px rgba(var(--g),.85);}"+
+    ".sbm.sbm-l4{box-shadow:0 0 0 1.5px #fff inset,0 0 0 3px rgba(var(--g),.8),0 0 18px 3px rgba(var(--g),.95);animation:sbmPulse 2.2s ease-in-out infinite;}"+
+    ".sbm.sbm-l5{background:linear-gradient(120deg,var(--c1),var(--c3),var(--c2),var(--c1));background-size:260% 100%;box-shadow:0 0 0 1.5px #fff inset,0 0 0 3px #FFD54F,0 0 20px 4px rgba(var(--g),1);animation:sbmFlow 3.5s linear infinite,sbmPulse 2.2s ease-in-out infinite;}"+
+    ".sbm .sbm-lv{position:relative;font-size:.85em;padding:0 .45em;border-radius:999px;background:rgba(0,0,0,.32);}"+
+    ".sbm .sbm-sp4{left:2.2em;top:.12em;animation-delay:.4s;}.sbm .sbm-sp5{left:1.2em;bottom:.1em;animation-delay:1.3s;}"+
+    "@keyframes sbmPulse{0%,100%{filter:brightness(1);}50%{filter:brightness(1.18);}}@keyframes sbmFlow{to{background-position:260% 0;}}"+
+    "@media (prefers-reduced-motion:reduce){.sbm.sbm-l4,.sbm.sbm-l5{animation:none;}}"+
     ".sbm.sbm-lg{font-size:17px;margin-left:0;padding:.3em 1.2em .3em .45em;}"+
     "@media (prefers-reduced-motion:reduce){.sbm .sbm-orb::before,.sbm::after,.sbm .sbm-sp{animation:none;}.sbm .sbm-sp{opacity:.85;}}"+
     /* bảng chọn trong Kho sao */
@@ -16248,7 +16275,7 @@ window.addEventListener("DOMContentLoaded", () => {
     no_spins_left:"Hôm nay bạn đã dùng hết lượt quay sao.",not_enough_bamboo:"Không đủ Cành Trúc.",
     no_duplicates:"Bạn chưa có sao trùng nào để tán (sao đang treo bán được giữ lại).",already_have:"Bạn đang có sao này rồi, chỉ chế được sao còn thiếu.",
     not_enough_dust:"Chưa đủ Bụi Sao.",week_limit:"Tuần này bạn đã đổi đủ 2 bộ 12 sao (tuần tính từ thứ Hai đến Chủ nhật). 12 sao chưa bị trừ.",
-    tickets_full:"Bạn đang cầm đủ 2 vé, hãy dùng bớt rồi đổi tiếp. 12 sao chưa bị trừ.",missing_stars:"Chưa đủ 12 loại sao (sao đang treo bán không tính).",
+    tickets_full:"Bạn đang cầm đủ 2 vé, hãy dùng bớt rồi đổi tiếp. 12 sao chưa bị trừ.",missing_stars:"Chưa đủ 12 loại sao (sao đang treo bán không tính).",max_level:"Sao Bản Mệnh đã đạt cấp tối đa.",no_destiny:"Bạn cần chọn Sao Bản Mệnh trước.",
     already_owned:"Bạn đã có Ngọc Bội Ngũ Hành, hãy chọn Vé Mở Thẻ.",no_ticket:"Bạn không có vé loại này.",bag_full:"Túi thẻ đã đầy, hãy dùng hoặc bỏ 1 thẻ rồi dùng vé.",
     price_too_low:"Giá thấp hơn giá sàn.",bad_price:"Giá phải là số nguyên dương.",max_listings:"Bạn đang treo tối đa "+MAX_LIST+" sao.",
     not_enough_star:"Bạn không còn sao khả dụng loại này (sao đang treo bị khóa).",sold_out:"Sao này vừa được bán hoặc đã bị hủy treo, hãy làm mới chợ.",
@@ -16270,6 +16297,7 @@ window.addEventListener("DOMContentLoaded", () => {
   function myListings(){ var n=0; for(var i=1;i<=12;i++) n+=lst(i); return n; }
   function dupes(){ var n=0,d=0; for(var i=1;i<=12;i++){ var e=cnt(i)-1-lst(i); if(e>0){ n+=e; d+=e*tierOf(i).dust; } } return {n:n,d:d}; }
   function complete(){ for(var i=1;i<=12;i++) if(avail(i)<1) return false; return true; }
+  function hasSets(k){ for(var i=1;i<=12;i++) if(avail(i)<k) return false; return true; }
   function call(action,data){
     var c=ctx(); data=data||{}; data.username=c.username; data.password=pw(c.username);
     return callServer(action,data);
@@ -16287,6 +16315,7 @@ window.addEventListener("DOMContentLoaded", () => {
       reg("star_tk_nh","star_use_ticket_nh_p");
       reg("star_tk_card","star_use_ticket_card_p");
       reg("star_tk_pick","star_pick_ticket_card_p",{card:"p_card"});   /* 08/10: Vé Mở Thẻ chọn thẻ tùy ý */
+      reg("star_upgrade","star_upgrade_destiny_p");
       reg("star_destiny","star_set_destiny_p",{star:"p_star"});          /* 08/10: chọn/đổi Sao Bản Mệnh */
       reg("star_market","star_market_list_p",{className:"p_class"});
       reg("star_list","star_list_p",{className:"p_class",star:"p_star",price:"p_price"});
@@ -16397,6 +16426,23 @@ window.addEventListener("DOMContentLoaded", () => {
       try{ B.applyLocal(r.badge); }catch(e){}
       msg="🌟 Sao Bản Mệnh của bạn là "+nm+"! Huy hiệu đã sáng trên Bảng Xếp Hạng, các ải Luân Hồi / Độ Kiếp / Phi Thăng giảm "+B.DISC+" 🎋.";
       feed("🌟 "+meName()+(cur?" đã đổi sang":" đã chọn")+" Sao Bản Mệnh "+nm+"!");
+      await refreshPouch();
+      try{ await refreshServerRoster(); }catch(e){}
+      try{ if(typeof lbActive==="function"&&lbActive()&&typeof renderLeaderboardContent==="function") renderLeaderboardContent(); }catch(e){}
+      try{ if(typeof updateGamificationUI==="function") updateGamificationUI(); }catch(e){}
+    });
+  }
+  async function doUpgrade(){
+    var B=window.SBM; if(!B||!B.mine()) return;
+    var nx=B.lv()+1; if(nx>5) return; var cost=(nx===5)?2:1;
+    if(!confirm("Nâng Sao Bản Mệnh lên Lv."+nx+"? Sẽ dùng "+cost+" bộ 12 sao (mỗi loại "+cost+") và tính vào giới hạn "+SETS_WEEK+" bộ/tuần (tuần này bạn đã dùng "+(S.weekSets|0)+"/"+SETS_WEEK+").")) return;
+    await run(async function(){
+      var r=await call("star_upgrade",{});
+      if(!r||!r.ok){ msg=errText(r); return; }
+      S.stars=r.stars; S.weekSets=r.weekSets;
+      try{ B.applyLevelLocal(r.badge); }catch(e){}
+      msg="⭐ Sao Bản Mệnh của bạn đã lên Lv."+r.level+"! Các ải Luân Hồi / Độ Kiếp / Phi Thăng giảm tối đa "+(B.DISC*r.level)+" 🎋.";
+      feed("⭐ "+meName()+" nâng Sao Bản Mệnh lên Lv."+r.level+"!");
       await refreshPouch();
       try{ await refreshServerRoster(); }catch(e){}
       try{ if(typeof lbActive==="function"&&lbActive()&&typeof renderLeaderboardContent==="function") renderLeaderboardContent(); }catch(e){}
@@ -16606,8 +16652,8 @@ window.addEventListener("DOMContentLoaded", () => {
     var B=window.SBM; if(!B) return "";
     var cur=B.mine(), ok=complete(), wk=(S.weekSets|0)>=SETS_WEEK, sel=destSel|0, i;
     var h='<div class="cs-sub"><h4>🌟 Sao Bản Mệnh</h4>';
-    h+='<div class="sbm-cur">'+(cur?B.html(cur,{lg:true}):'<span class="cs-note">Bạn chưa chọn Sao Bản Mệnh.</span>')+'</div>';
-    h+='<div class="cs-note">Chọn 1 chòm sao làm Sao Bản Mệnh: <b>huy hiệu siêu sao</b> của chòm sao đó sẽ sáng ngay cạnh tên bạn trên Bảng Xếp Hạng. Khi đã có Sao Bản Mệnh, mỗi ải <b>Luân Hồi · Độ Kiếp · Phi Thăng</b> chưa mua được <b>giảm '+B.DISC+' 🎋</b> (đổi sang sao khác vẫn giữ ưu đãi).</div>';
+    h+='<div class="sbm-cur">'+(cur?B.html(cur,{lg:true,lv:B.lv()}):'<span class="cs-note">Bạn chưa chọn Sao Bản Mệnh.</span>')+'</div>';
+    h+='<div class="cs-note">Chọn 1 chòm sao làm Sao Bản Mệnh: <b>huy hiệu siêu sao</b> của chòm sao đó sẽ sáng ngay cạnh tên bạn trên Bảng Xếp Hạng. Khi đã có Sao Bản Mệnh, mỗi ải <b>Luân Hồi · Độ Kiếp · Phi Thăng</b> chưa mua được <b>giảm '+B.DISC+' 🎋</b> mỗi cấp, tối đa cấp 5 (đổi sang sao khác vẫn giữ cấp).</div>';
     h+='<div class="sbm-grid">';
     for(i=1;i<=12;i++){
       var isNow=(i===cur);
@@ -16617,6 +16663,15 @@ window.addEventListener("DOMContentLoaded", () => {
     h+='<div class="cs-note">Lần đầu chọn và mỗi lần đổi đều dùng hết 12 sao (mỗi loại 1, không tính sao đang treo), tính chung giới hạn '+SETS_WEEK+' bộ/tuần với đổi vé và đổi XP (tuần này: '+(S.weekSets|0)+'/'+SETS_WEEK+').'+(!ok?' Bạn chưa đủ bộ 12 sao.':'')+(wk?' Tuần này bạn đã đổi đủ.':'')+'</div>';
     var can=ok&&!wk&&sel>=1&&sel!==cur;
     h+='<div class="cs-row"><button class="btn btn-ok" data-cs="dok"'+(can?'':' disabled')+'>'+(sel?(cur?'🔁 Đổi sang ':'🌟 Chọn ')+STARS[sel].i+'\uFE0E '+esc(STARS[sel].n):'Bấm vào 1 huy hiệu để chọn')+'</button></div>';
+    if(cur){
+      var lv=B.lv(), nx=lv+1, cost=(nx===5)?2:1;
+      if(lv>=5) h+='<div class="cs-note">👑 Sao Bản Mệnh đã đạt cấp tối đa (Lv.5).</div>';
+      else {
+        var okU=hasSets(cost), wkU=((S.weekSets|0)+cost)>SETS_WEEK;
+        h+='<div class="cs-note">Nâng lên <b>Lv.'+nx+'</b>: dùng '+cost+' bộ 12 sao (mỗi loại '+cost+'). Ải giảm tối đa <b>'+(B.DISC*nx)+' 🎋</b> (giá ải không thấp hơn 50% giá gốc), huy hiệu trên Bảng Xếp Hạng đẹp hơn.'+(okU?'':' Bạn chưa đủ '+cost+' bộ 12 sao.')+(wkU?' Tuần này không đủ lượt (cần '+cost+', còn '+Math.max(0,SETS_WEEK-(S.weekSets|0))+').':'')+'</div>';
+        h+='<div class="cs-row"><button class="btn btn-ok" data-cs="dup"'+((okU&&!wkU)?'':' disabled')+'>⭐ Nâng lên Lv.'+nx+' ('+cost+' bộ)</button></div>';
+      }
+    }
     return h+'</div>';
   }
   function viewKho(){
@@ -16730,6 +16785,7 @@ window.addEventListener("DOMContentLoaded", () => {
     else if(a==="ex") doExchange(b.getAttribute("data-k"));
     else if(a==="dsel"){ destSel=parseInt(b.getAttribute("data-s"),10)||0; render(); }
     else if(a==="dok") doDestiny();
+    else if(a==="dup") doUpgrade();
     else if(a==="tknh") doTicketNh();
     else if(a==="tkcard") openPick();
     else if(a==="pickc"){ pickSel=b.getAttribute("data-c")||""; render(); }
