@@ -90,6 +90,19 @@ button:hover:not(:disabled){transform:translateY(-1px);box-shadow:0 10px 22px -1
  #sub{width:100%}
  #openBook{width:100%}
 }
+
+.depts{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+@media(max-width:420px){.depts{grid-template-columns:1fr}}
+.depts label{display:flex;align-items:center;gap:10px;margin:0;padding:0 12px;min-height:46px;font-size:15px;color:var(--txt);border:1px solid var(--line);border-radius:14px;background:rgba(0,0,0,.2);cursor:pointer}
+.depts label:has(input:checked){border-color:var(--gold);background:rgba(227,185,79,.16)}
+.depts input{width:22px;min-height:22px;height:22px;padding:0;accent-color:#E3B94F;flex:none}
+.adm-link{background:none;border:0;color:var(--mut);min-height:44px;font:inherit;font-size:13px;text-decoration:underline;padding:0 8px;border-radius:0}
+.adm-link:hover:not(:disabled){transform:none;box-shadow:none;color:var(--gold)}
+#admCard textarea{min-height:70px}
+.arow{border:1px solid var(--line);border-radius:16px;padding:14px;margin-bottom:12px;background:rgba(0,0,0,.15)}
+.arow label{margin:10px 0 4px;font-size:13px}.arow label:first-child{margin-top:0}
+.arow .chk label{margin:0}
+.acts{display:flex;gap:10px;flex-wrap:wrap;margin-top:16px}
 </style>
 </head>
 <body>
@@ -124,7 +137,7 @@ button:hover:not(:disabled){transform:translateY(-1px);box-shadow:0 10px 22px -1
 <div id="needLogin" class="notice" hidden>Hãy đặt lịch web hoặc nhắn thư ký Wendy qua WhatsApp +84 91 956 20 17.</div>
 <form id="f">
 <label for="name">Họ và tên</label><input id="name" name="name" required autocomplete="name">
-<label for="phone">Phòng ban</label><input id="phone" name="phone" required autocomplete="organization-title" placeholder="Ví dụ: Xuất khẩu, Nội địa, Kế toán…">
+<label id="deptLbl">Phòng ban (tick chọn 1)</label><div class="depts" id="depts" role="radiogroup" aria-labelledby="deptLbl"></div>
 <label for="service">Dịch vụ</label>
 <select id="service" name="service">
 <option>Massage mặt kem hoa cúc</option>
@@ -149,7 +162,8 @@ button:hover:not(:disabled){transform:translateY(-1px);box-shadow:0 10px 22px -1
 <div class="chat" id="mChat" aria-live="polite"></div>
 <form class="send" id="mSend" style="flex-wrap:wrap"><input id="cName" placeholder="Tên của bạn" aria-label="Tên của bạn" style="flex-basis:100%" hidden><input id="mText" placeholder="Nhắn tin cho Marcus Therapy…" aria-label="Tin nhắn" required><button type="submit">Gửi</button></form>
 </section>
-<footer><span id="contact">Đặt lịch trực tiếp trên Teams hoặc liên hệ thư ký Wendy · WhatsApp +84 91 956 20 17</span></footer>
+<section class="card" id="admCard" hidden></section>
+<footer><span id="contact">Đặt lịch trực tiếp trên Teams hoặc liên hệ thư ký Wendy · WhatsApp +84 91 956 20 17</span><br><button type="button" class="adm-link" id="admOpen">Quản lý</button></footer>
 </main>
 </div>
 
@@ -158,7 +172,7 @@ var APPS='https://script.google.com/macros/s/AKfycbxuthOcSGDMBs6znIDalsVnQjeZlLL
 var $=function(s){return document.querySelector(s)};
 function esc(s){return String(s==null?'':s).replace(/[&<>"]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]})}
 function fmt(t){try{return new Date(t).toLocaleString('vi-VN',{hour:'2-digit',minute:'2-digit',day:'2-digit',month:'2-digit'})}catch(e){return ''}}
-var DEF={eyebrow:'MASSAGE THƯ GIÃN CHUẨN Y KHOA',promo:'Gói trải nghiệm 0 đồng cho 10 khách đầu tiên',contact:'Đặt lịch trực tiếp trên Teams hoặc liên hệ thư ký Wendy · WhatsApp +84 91 956 20 17',notice:'Hãy đặt lịch web hoặc nhắn thư ký Wendy qua WhatsApp +84 91 956 20 17.',services:[
+var DEF={eyebrow:'MASSAGE THƯ GIÃN CHUẨN Y KHOA',promo:'Gói trải nghiệm 0 đồng cho 10 khách đầu tiên',contact:'Đặt lịch trực tiếp trên Teams hoặc liên hệ thư ký Wendy · WhatsApp +84 91 956 20 17',notice:'Hãy đặt lịch web hoặc nhắn thư ký Wendy qua WhatsApp +84 91 956 20 17.',depts:['AFC','APA','Chứng Từ Xuất Nhập Khẩu','Hành Chính Nhân Sự','Kế Toán','Kinh Doanh Nội Địa','Kinh Doanh Xuất Khẩu 1','Kinh Doanh Xuất Khẩu 2','Logistics 1','Logistics 2','Mua hàng','Sales Admin Nội Địa'],services:[
 {n:'Massage mặt kem hoa cúc',d:'Làm sạch và nâng niu làn da bằng kem hoa cúc dịu nhẹ, giúp mặt thư giãn, tươi sáng và mềm mại.',m:false},
 {n:'Massage bấm huyệt đầu & cổ',d:'Bấm huyệt vùng đầu, gáy và cổ giúp giảm căng thẳng, nhẹ đầu và dễ ngủ hơn.',m:false},
 {n:'Massage lưng kiểu Thụy Điển',d:'Vuốt dài, miết sâu cùng dầu mè ấm, làm dịu cơ lưng và giải tỏa mỏi vai gáy.',m:true},
@@ -167,6 +181,7 @@ var CFG=DEF,srv=[],loc=[];
 function maleOf(i){return !!(CFG.services[i]||{}).m}
 function renderSite(){var c=CFG;$('#eyebrow').textContent=c.eyebrow;$('#promo').textContent=c.promo;$('#promo').hidden=!c.promo;$('#contact').textContent=c.contact;$('#needLogin').textContent=c.notice;
  $('#svcs').innerHTML=c.services.map(function(s){return '<div class="svc"><b>'+esc(s.n)+'</b><span>'+esc(s.d)+'</span>'+(s.m?'<br><em>CHỈ PHỤC VỤ KHÁCH NAM</em>':'')+'</div>'}).join('');
+ var dv=(document.querySelector('#depts input:checked')||{}).value;$('#depts').innerHTML=(c.depts||DEF.depts).map(function(d,i){return '<label><input type="radio" name="phone" value="'+esc(d)+'"'+(i===0?' required':'')+(d===dv?' checked':'')+'> '+esc(d)+'</label>'}).join('');
  var sel=$('#service'),cur=sel.value;sel.innerHTML=c.services.map(function(s){return '<option>'+esc(s.n+(s.m?' (chỉ khách nam)':''))+'</option>'}).join('');
  if(cur)sel.value=cur;if(sel.selectedIndex<0)sel.selectedIndex=0;$('#maleHint').textContent=maleOf(sel.selectedIndex)?'Dịch vụ này chỉ phục vụ khách nam.':''}
 function ls(k,v){try{if(v===undefined)return localStorage.getItem(k);localStorage.setItem(k,v)}catch(e){}return null}
@@ -203,6 +218,84 @@ $('#mSend').addEventListener('submit',async function(e){
  ls('mt_name',nm);$('#cName').hidden=true;$('#mText').value='';loc.push({from:'khach',text:t,at:Date.now()});renderChat();
  try{await post({action:'chat',cid:cid(),name:nm,text:t});setTimeout(poll,2500)}catch(x){}
 });
+
+/* ---- Quản lý ---- */
+var ADM_PW='';
+function lines(v){return String(v||'').split('\n').map(function(x){return x.trim()}).filter(Boolean)}
+$('#admOpen').addEventListener('click',function(){
+ var c=$('#admCard');c.hidden=false;ADM_PW='';
+ c.innerHTML='<h2>Quản lý</h2><label for="admPw">Mật khẩu</label><input id="admPw" type="password" autocomplete="current-password"><div class="hint" id="admMsg"></div><div class="acts"><button type="button" id="admGo">Đăng nhập</button><button type="button" class="ghost" id="admX">Đóng</button></div>';
+ c.scrollIntoView({behavior:'smooth'});$('#admPw').focus();
+ $('#admX').onclick=function(){c.hidden=true;c.innerHTML=''};
+ var go=async function(){
+  var pw=$('#admPw').value;if(!pw)return;
+  if(!ready()){$('#admMsg').textContent='Chưa kết nối backend.';return}
+  $('#admMsg').textContent='Đang kiểm tra…';
+  try{var r=await fetch(APPS+'?action=auth&pw='+encodeURIComponent(pw));var j=await r.json();
+   if(j&&j.ok){ADM_PW=pw;admHome()}else $('#admMsg').textContent='Sai mật khẩu.'}
+  catch(e){$('#admMsg').textContent='Backend chưa hỗ trợ đăng nhập quản lý (cần thêm code Apps Script).'}
+ };
+ $('#admGo').onclick=go;$('#admPw').addEventListener('keydown',function(e){if(e.key==='Enter'){e.preventDefault();go()}});
+});
+function admHome(){
+ var c=$('#admCard');
+ c.innerHTML='<div class="top"><h2 style="margin:0">Quản lý</h2><div class="acts" style="margin:0"><button type="button" id="tabC">Nội dung web</button><button type="button" class="ghost" id="tabM">Tin nhắn &amp; lịch</button><button type="button" class="ghost" id="admX">Đóng</button></div></div><div id="admBody"></div>';
+ $('#admX').onclick=function(){c.hidden=true;c.innerHTML='';ADM_PW=''};
+ $('#tabC').onclick=function(){$('#tabC').className='';$('#tabM').className='ghost';admEdit()};
+ $('#tabM').onclick=function(){$('#tabM').className='';$('#tabC').className='ghost';admMsgs()};
+ admEdit();
+}
+async function admMsgs(){
+ var b=$('#admBody');b.innerHTML='<div class="hint">Đang tải…</div>';
+ try{
+  var r=await fetch(APPS+'?action=adminList&pw='+encodeURIComponent(ADM_PW));var j=await r.json();
+  if(!j.ok){b.innerHTML='<div class="hint">Không tải được.</div>';return}
+  var g={},o=[];j.messages.forEach(function(m){if(!g[m.cid]){g[m.cid]=[];o.push(m.cid)}g[m.cid].push(m)});
+  o.sort(function(a,z){return g[z][g[z].length-1].at-g[a][g[a].length-1].at});
+  b.innerHTML=(o.length?o.map(function(cid){var ms=g[cid],nm=(ms.filter(function(m){return m.from==='khach'})[0]||ms[0]).name;
+   return '<div class="arow" data-cid="'+esc(cid)+'"><b>'+esc(nm||'Khách')+'</b><div class="chat" style="max-height:240px">'+ms.map(function(m){var k=m.from==='khach';
+   return '<div class="m '+(k?'k':'a')+'" style="max-width:100%"><small>'+(k?esc(m.name||'Khách'):'Marcus Therapy')+' · '+fmt(m.at)+' · <a href="#" class="mdel" data-id="'+esc(m.id)+'" style="color:var(--gold)">Xoá</a></small>'+esc(m.text)+'</div>'}).join('')+'</div>'+
+   '<div class="send"><input class="rt" placeholder="Trả lời khách…"><button type="button" class="rs">Gửi</button></div></div>'}).join(''):'<div class="notice">Chưa có tin nhắn nào.</div>')+'<div class="hint" id="admMsg"></div>';
+  b.onclick=async function(e){
+   var t=e.target;
+   if(t.classList.contains('mdel')){e.preventDefault();if(!confirm('Xoá tin nhắn này?'))return;
+    await post({action:'adminDelete',pw:ADM_PW,id:t.getAttribute('data-id')});setTimeout(admMsgs,1500)}
+   if(t.classList.contains('rs')){var row=t.closest('.arow'),inp=row.querySelector('.rt'),tx=inp.value.trim();if(!tx)return;
+    await post({action:'adminReply',pw:ADM_PW,cid:row.getAttribute('data-cid'),text:tx});setTimeout(admMsgs,1500)}
+  };
+ }catch(e){b.innerHTML='<div class="hint">Lỗi kết nối.</div>'}
+}
+function svcRow(s,i){return '<div class="arow" data-i="'+i+'"><label>Tên dịch vụ</label><input class="an" value="'+esc(s.n)+'"><label>Mô tả</label><textarea class="ad" rows="2">'+esc(s.d)+'</textarea><div class="chk"><label><input type="checkbox" class="am"'+(s.m?' checked':'')+'> Chỉ phục vụ khách nam</label></div><button type="button" class="ghost adel">Xoá dịch vụ</button></div>'}
+function admEdit(){
+ var c=$('#admBody'),k=CFG;
+ c.innerHTML=
+ '<label>Dòng nhỏ phía trên tên</label><input id="eEy" value="'+esc(k.eyebrow)+'">'+
+ '<label>Khuyến mãi (để trống nếu không dùng)</label><input id="ePr" value="'+esc(k.promo)+'">'+
+ '<label>Thông tin liên hệ (cuối trang)</label><textarea id="eCo" rows="2">'+esc(k.contact)+'</textarea>'+
+ '<label>Thông báo khi web chưa kết nối</label><textarea id="eNo" rows="2">'+esc(k.notice)+'</textarea>'+
+ '<label>Danh sách phòng ban (mỗi dòng 1 phòng ban)</label><textarea id="eDe" rows="8">'+esc((k.depts||DEF.depts).join('\n'))+'</textarea>'+
+ '<h2 style="margin-top:22px">Dịch vụ</h2><div id="eSv">'+k.services.map(svcRow).join('')+'</div>'+
+ '<button type="button" class="ghost" id="eAdd">+ Thêm dịch vụ</button>'+
+ '<div class="hint" id="admMsg"></div>'+
+ '<div class="acts"><button type="button" id="eSave">Lưu thay đổi</button></div>';
+ $('#eAdd').onclick=function(){$('#eSv').insertAdjacentHTML('beforeend',svcRow({n:'',d:'',m:false},0))};
+ $('#eSv').addEventListener('click',function(e){if(e.target.classList.contains('adel')){if($('#eSv').children.length>1&&confirm('Xoá dịch vụ này?'))e.target.closest('.arow').remove()}});
+ $('#eSave').onclick=async function(){
+  var sv=[].slice.call(document.querySelectorAll('#eSv .arow')).map(function(r){return {n:r.querySelector('.an').value.trim(),d:r.querySelector('.ad').value.trim(),m:r.querySelector('.am').checked}}).filter(function(x){return x.n});
+  var de=lines($('#eDe').value);
+  if(!sv.length){$('#admMsg').textContent='Cần ít nhất 1 dịch vụ.';return}
+  if(!de.length){$('#admMsg').textContent='Cần ít nhất 1 phòng ban.';return}
+  var cfg={eyebrow:$('#eEy').value.trim(),promo:$('#ePr').value.trim(),contact:$('#eCo').value.trim(),notice:$('#eNo').value.trim(),depts:de,services:sv};
+  $('#eSave').disabled=true;$('#admMsg').textContent='Đang lưu…';
+  try{await post({action:'saveConfig',pw:ADM_PW,config:cfg});
+   await new Promise(function(r){setTimeout(r,1800)});
+   var r=await fetch(APPS+'?action=config');var j=await r.json();
+   if(j&&JSON.stringify(j.services)===JSON.stringify(sv)&&JSON.stringify(j.depts)===JSON.stringify(de)){CFG=Object.assign({},DEF,j);renderSite();$('#admMsg').textContent='Đã lưu ✓'}
+   else $('#admMsg').textContent='Chưa thấy thay đổi được lưu. Kiểm tra lại code Apps Script (saveConfig) rồi thử lại.'}
+  catch(e){$('#admMsg').textContent='Lưu không được, thử lại nhé.'}
+  $('#eSave').disabled=false;
+ };
+}
 renderSite();renderChat();loadCfg();poll();setInterval(poll,8000);
 document.addEventListener('visibilitychange',function(){if(!document.hidden)poll()});
 </script>
